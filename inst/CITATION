@@ -1,0 +1,22 @@
+citHeader("To cite package 'MSmix' in publications use:")
+
+bibentry(bibtype="Article",
+         title = "Efficient and accurate inference for mixtures of Mallows models
+                  with Spearman distance",
+         author = c(person(given="Marta", family="Crispino"),
+                    person(given="Cristina", family="Mollica"),
+                    person(given="Valerio", family="Astuti"),
+                    person(given="Luca", family="Tardella")),
+         year = "2023",
+         journal = "Statistics and Computing",
+         volume = 33,
+         number = 98,
+	 issn = "0960-3174",
+         doi = "10.1007/s11222-023-10266-8",
+         textVersion = paste("Crispino, M., Mollica, C., Astuti, V., Tardella, L. (2023).",
+                "Efficient and accurate inference for mixtures of Mallows models with
+                 Spearman distance.", "Statistics and Computing,",
+	       "Vol. 33(98),",
+               "pages 442--458,",
+	       "ISSN: 0960-3174,",
+                "DOI: 10.1007/s11222-023-10266-8."))
