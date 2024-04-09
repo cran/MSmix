@@ -10,13 +10,13 @@
 \method{print}{summary.emMSmix}(x, ...)
 }
 \arguments{
-\item{object}{An object of class \code{"emMSmix"} returned by \code{fitMSmix}.}
+\item{object}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
 \item{digits}{Integer: decimal places for rounding the numerical summaries. Defaults to 3.}
 
 \item{...}{Further arguments passed to or from other methods (not used).}
 
-\item{x}{An object of class \code{"summary.emMSmix"} returned by \code{summary.emMSmix}.}
+\item{x}{An object of class \code{"summary.emMSmix"} returned by \code{\link{summary.emMSmix}}.}
 }
 \value{
 A list with the following named components:

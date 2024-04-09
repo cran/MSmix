@@ -12,6 +12,7 @@ utils::globalVariables(c(".","amv"))
 #' @importFrom ggbump geom_bump
 #' @importFrom graphics box image legend lines par points polygon text mtext
 #' @importFrom grDevices adjustcolor colorRamp rainbow rgb
+#' @importFrom gmp factorialZ
 #' @importFrom gridExtra grid.arrange
 #' @importFrom methods is
 #' @importFrom Rankcluster frequence
@@ -208,7 +209,7 @@ data_augmentation <- function(rankings, subset = NULL, fill_single_na = TRUE) {
   if ((n_items > 11)&(any(quanti_na > 6))) {
     x <- menu(c("Yes", "No"), title="Are you sure you want to generate all possible full rankings compatible with the partial observations?
     Please, be aware that this may be slow and allocate a lot of memory.
-    Alteratively, set mc_em = TRUE")
+    Alteratively, set mc_em = TRUE.")
   if(x==2)(stop())
     }
 
@@ -227,8 +228,6 @@ data_augmentation <- function(rankings, subset = NULL, fill_single_na = TRUE) {
 
   return(out)
 } # list of N elements which are all matrices with n columns and an arbitrary number of rows
-
-
 
 
 # data_completion ----
@@ -255,8 +254,9 @@ data_augmentation <- function(rankings, subset = NULL, fill_single_na = TRUE) {
 #' data_completion(rankings = c(3, NA, NA, 1, NA), reference_rho = c(4, 5, 1, 3, 2))
 #'
 #' ## Example 2. Completion of partial rankings with arbitrary censoring patterns.
-#' data_completion(rankings = rbind(c(3, NA, NA, 7, 2, NA, NA), c(NA, 6, NA, 5, NA, NA, 1),7:1),
-#'                 reference_rho = rbind(c(4, 5, 6, 1, 3, 7, 2), 7:1, 1:7))
+#' rankings <- rbind(c(3, NA, NA, 7, 2, NA, NA), c(NA, 6, NA, 5, NA, NA, 1),7:1)
+#' data_completion(rankings = rankings, reference_rho = rbind(c(4, 5, 6, 1, 3, 7, 2),
+#'                 7:1, 1:7))
 #'
 #' @export
 #'
@@ -878,6 +878,117 @@ rMSmix <- function(sample_size = 1,
   return(list(samples = data_sim, rho = rho, theta = theta, weights = weights, classification = classification))
 }
 
+# mar_cens ----
+mar_cens <- function(rankings, nranked = NULL, probcens = rep(1,ncol(rankings) - 1)){
+
+  n_items <- ncol(rankings)
+  N <- nrow(rankings)
+
+  if (is.null(nranked)) {
+    nranked <- sample(c(1:(n_items - 2), n_items), size = N, replace = TRUE,
+                      prob = probcens)
+  }
+
+  data_partial <- rankings
+  for(j in 1:N){
+    r <- rankings[j,]
+    dove <- sample(n_items, n_items-nranked[j])
+    qualiranks <- r[dove]
+    data_partial[j,dove]<-NA
+  }
+
+  return(list(partialdata = data_partial, nranked = nranked))
+}
+
+# topk_cens ----
+topk_cens <- function(rankings, nranked = NULL, probcens = rep(1,ncol(rankings) - 1)){
+
+  n_items <- ncol(rankings)
+  N <- nrow(rankings)
+
+  if (is.null(nranked)) {
+    nranked <- sample(c(1:(n_items - 2), n_items), size = N, replace = TRUE,
+                      prob = probcens)
+  }
+
+  data_partial <- rankings
+  for(j in 1:N){
+    r <- rankings[j,]
+    r[which(r>nranked[j])]<-NA
+    data_partial[j,]<-r
+  }
+
+  return(list(partialdata = data_partial, nranked = nranked))
+}
+
+# data_censoring ----
+#' Censoring of full rankings
+#'
+#' Convert full rankings into either top-k or MAR (missing at random) partial rankings.
+#'
+#' Both forms of partial rankings can be obtained into two ways: (i) by specifying, in the \code{nranked} argument, the number of positions to be retained in each partial ranking; (ii) by setting \code{nranked = NULL} (default) and specifying, in the \code{probcens} argument, the probabilities of retaining respectively \eqn{1, 2, ..., (n-1)} positions in the partial rankings (recall that a partial sequence with \eqn{(n-1)} observed entries corresponds to a full ranking).
+#'
+#' In the censoring process of full rankings into MAR partial sequences, the positions to be retained are uniformly generated.
+#'
+#' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with full rankings in each row.
+#' @param type Character indicating which censoring process must be used. Options are: \code{"topk"} and \code{"mar"}. Defaults to \code{"topk"}.
+#' @param nranked Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If not supplied (\code{NULL}), the number of positions are randomly generated according to the probabilities in the \code{probcens} argument. Defaults to \code{NULL}.
+#' @param probcens Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked} argument is \code{NULL} (see Details). Default is equal probabilities.
+#'
+#' @return A list of two named objects:
+#'  \describe{
+#'  \item{\code{part_rankings}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial (censored) rankings in each row. Missing positions must be coded as \code{NA}.}
+#'  \item{\code{nranked}}{Integer vector of length \eqn{N} with the actual number of items ranked in each partial sequence after censoring.}
+#'  }
+#'
+#' @examples
+#'
+#' ## Example 1. Censoring the Antifragility dataset into partial top rankings
+#' # Top-3 censoring (assigned number of top positions to be retained)
+#' data_censoring(ranks_antifragility, type = "topk",
+#'                nranked = rep(3,nrow(ranks_antifragility)))
+#' # Random top-k censoring with assigned probabilities
+#' set.seed(12345)
+#' data_censoring(ranks_antifragility, type = "topk",
+#'                probcens = 1:(ncol(ranks_antifragility)-1))
+#' ## Example 2. Simulate full rankings from a basic Mallows model with Spearman distance
+#' n_items <- 10
+#' N <- 100
+#' set.seed(12345)
+#' rankings <- rMSmix(sample_size = N, n_items = n_items)$samples
+#' # MAR censoring with assigned number of positions to be retained
+#' set.seed(12345)
+#' nranked <- round(runif(N,0.5,1)*n_items)
+#' set.seed(12345)
+#' mar_ranks1 <- data_censoring(rankings, type = "mar", nranked = nranked)
+#' mar_ranks1
+#' identical(mar_ranks1$nranked, nranked)
+#' # MAR censoring with assigned probabilities
+#' set.seed(12345)
+#' probcens <- runif(n_items-1, 0, 0.5)
+#' set.seed(12345)
+#' mar_ranks2 <- data_censoring(rankings, type = "mar", probcens = probcens)
+#' mar_ranks2
+#' prop.table(table(mar_ranks2$nranked))
+#' round(prop.table(probcens), 2)
+#'
+#' @export
+data_censoring <- function(rankings, type = "topk", nranked = NULL, probcens = rep(1,ncol(rankings) - 1)){
+
+  if (any(is.na(rankings))) {
+    stop("The input 'rankings' must contain full rankings in each row.")
+  }
+
+  if(type == "topk"){
+    out = topk_cens(rankings=rankings, nranked=nranked, probcens=probcens)
+  }else{
+    out = mar_cens(rankings=rankings, nranked=nranked, probcens=probcens)
+  }
+  return(list(part_rankings=out$partialdata,nranked=out$nranked))
+}
+
+
+
 # spear_dist ----
 #' Spearman distance
 #'
@@ -955,7 +1066,7 @@ spear_dist <- function(rankings, rho = NULL, subset = NULL, diag = FALSE, upper 
 #'
 #' The heatmap can be also obtained by setting the arguments \code{rho = NULL} and \code{plot_dist_mat = TRUE} when applying \code{\link{spear_dist}}.
 #'
-#' @param x An object of class \code{"dist"}, returned by \code{spear_dist} when setting the argument \code{rho = NULL}.
+#' @param x An object of class \code{"dist"}, returned by \code{\link{spear_dist}} when setting the argument \code{rho = NULL}.
 #' @param order Logical: whether the rows of the distance matrix must be ordered. Defaults to \code{TRUE}.
 #' @param show_labels Logical: whether the labels must be displayed on the axes. Defaults to \code{TRUE}.
 #' @param lab_size Positive scalar: the magnification of the labels on the axes. Defaults to 3.
@@ -1009,12 +1120,10 @@ plot.dist <- function(x, order = TRUE, show_labels = TRUE, lab_size = 3, gradien
 # spear_dist_distr ----
 #' Spearman distance distribution under the uniform ranking model
 #'
-#' @description Provide (either the exact or the approximate) frequency distribution of the Spearman distance under the uniform (null) ranking model. Currently, it works for \eqn{n\leq 170}.
+#' @description Provide (either the exact or the approximate) frequency distribution of the Spearman distance under the uniform (null) ranking model.
 #'
 #' @details
-#' When \eqn{n\leq 20}, the exact distribution provided by OEIS Foundation Inc. (2023) is returned by relying on a call to the \code{get_cardinalities} routine of the \code{BayesMallows} package.
-#'
-#' When \eqn{20<n\leq 170}, the approximate distribution introduced by Crispino et al. (2023) is returned.
+#' When \eqn{n\leq 20}, the exact distribution provided by OEIS Foundation Inc. (2023) is returned by relying on a call to the \code{get_cardinalities} routine of the \code{BayesMallows} package. When \eqn{n>20}, the approximate distribution introduced by Crispino et al. (2023) is returned. If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
 #' @param n_items Number of items.
 #' @param log Logical: whether the frequencies must be reported on the log scale. Defaults to \code{TRUE}.
@@ -1037,35 +1146,37 @@ plot.dist <- function(x, order = TRUE, show_labels = TRUE, lab_size = 3, gradien
 #'
 #' ## Example 1. Exact Spearman distance distribution for n=20 items.
 #' distr <- spear_dist_distr(n_items = 20, log = FALSE)
-#' plot(distr$distances,distr$logcard,type='h',ylab = 'probability',xlab='d',
-#' main='distribution of the spearman distance under the null model')
+#' plot(distr$distances,distr$logcard,type='l',ylab = 'Frequency',xlab='d',
+#' main='Distribution of the Spearman distance\nunder the null model')
 #'
 #'
 #' ## Example 2. Approximate Spearman distance distribution for n=50 items with log-frequencies.
 #'distr <- spear_dist_distr(n_items = 50)
-#'plot(distr$distances,distr$logcard,type='h',ylab = 'log-probability',xlab='d',
-#'     main='log-distribution of the spearman distance under the null model')
+#'plot(distr$distances,distr$logcard,type='l',ylab = 'Log-frequency',xlab='d',
+#'     main='Log-distribution of the Spearman distance\nunder the null model')
 #'
 #' @export
 #'
-
 spear_dist_distr <- function(n_items, log = TRUE) {
   if (n_items <= 20) {
     pfd <- get_cardinalities(n_items = n_items, metric = "spearman")
     distances <- pfd$distance
     card <- pfd$value
-    return(list("distances" = distances, "logcard" = (if (log) log(card) else card)))
+    return(list(distances=distances, logcard=(if (log) log(card) else card)))
   } else {
-    if (n_items < 171) {
+    if (n_items <= 170) {
       message("Approximate frequency distribution of the Spearman distance")
       pfd <- get_log_card_approx_spearman(n_items)
-      logcardest <- pfd$logcard
-      distances <- pfd$dist
-      return(list("distances" = distances, "logcard" = (if (log) logcardest else exp(logcardest))))
     } else {
-      stop("Computation is limited to at most 170 items")
+      message("Approximate frequency distribution of the Spearman distance over a fixed grid of values")
+      pfd <- get_log_card_approx_spearman_grid(n_items)
     }
+
+    logcardest <- pfd$logcard
+    distances <- pfd$dist
+    return(list(distances=distances, logcard=(if (log) logcardest else exp(logcardest))))
   }
+
 }
 
 
@@ -1075,7 +1186,7 @@ spear_dist_distr <- function(n_items, log = TRUE) {
 #/' @description Compute (either the exact or the approximate) logarithm of the partition function of the Mallow model with Spearman distance.
 #/'
 #/' @details
-#/' When \eqn{n\leq 20}, the log-partition is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+#/' When \eqn{n\leq 20}, the log-partition is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #/'
 #/' The partition function is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, it is equivalent to \eqn{\log(n!)}, which is the normalizing constant of the uniform (null) model.
 #/'
@@ -1118,9 +1229,6 @@ spear_dist_distr <- function(n_items, log = TRUE) {
 #/'
 #/'
 log_partition_fun_spear <- function(theta, n_items) {
-  if (n_items > 170) {
-    stop("Computation is limited to at most 170 items")
-  }
 
   out <- suppressMessages(spear_dist_distr(n_items))
   logcardest <- out$logcard
@@ -1138,7 +1246,7 @@ log_partition_fun_spear <- function(theta, n_items) {
 #' @description Compute (either the exact or the approximate) (log-)partition function of the Mallow model with Spearman distance.
 #'
 #' @details
-#' When \eqn{n\leq 20}, the partition is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+#' When \eqn{n\leq 20}, the partition is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
 #' The partition function is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, the partition function is equivalent to \eqn{n!}, which is the normalizing constant of the uniform (null) model.
 #'
@@ -1167,22 +1275,21 @@ log_partition_fun_spear <- function(theta, n_items) {
 #' ## Example 3. Log-partition function of the Mallow model with Spearman distance
 #' ## as a function of theta.
 #' partition_fun_spear_vec <- Vectorize(partition_fun_spear, vectorize.args = "theta")
-#' curve(suppressMessages(partition_fun_spear_vec(x, n_items = 10)), from = 0, to = 0.1, lwd = 2,
+#' curve(partition_fun_spear_vec(x, n_items = 10), from = 0, to = 0.1, lwd = 2,
 #'   xlab = expression(theta), ylab = expression(log(Z(theta))),
 #'   main = "Log-partition function of the Mallow model with Spearman distance",
 #'   ylim = c(7, log(factorial(10))))
 #'
 #' ## Example 4. Log-partition function of the Mallow model with Spearman distance
-#' ## for varying number of items
-#' # and values of the concentration parameter.
+#' ## for varying number of items and values of the concentration parameter.
 #' partition_fun_spear_vec <- Vectorize(partition_fun_spear, vectorize.args = "theta")
-#' curve(suppressMessages(partition_fun_spear_vec(x, n_items = 10)),
+#' curve(partition_fun_spear_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2,
 #'   xlab = expression(theta), ylab = expression(log(Z(theta))),
 #'   main = "Log-partition function of the Mallow model with Spearman distance",
 #'   ylim = c(0, log(factorial(30))))
-#' curve(suppressMessages(partition_fun_spear_vec(x, n_items = 20)), add = TRUE, col = 3, lwd = 2)
-#' curve(suppressMessages(partition_fun_spear_vec(x, n_items = 30)), add = TRUE, col = 4, lwd = 2)
+#' curve(partition_fun_spear_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
+#' curve(partition_fun_spear_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
 #' legend("topright", legend = c(expression(n == 10), expression(n == 20), expression(n == 30)),
 #'   col = 2:4, lwd = 2, bty = "n")
 #'
@@ -1207,7 +1314,7 @@ partition_fun_spear <- function(theta, n_items, log = TRUE) {
 #/' @description Compute (either the exact or the approximate) logarithm of the expectation of the Spearman distance under the Mallow model with Spearman distance.
 #/'
 #/' @details
-#/' When \eqn{n\leq 20}, the log-expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+#/' When \eqn{n\leq 20}, the log-expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023).When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #/'
 #/' The expected Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric.
 #/'
@@ -1222,9 +1329,6 @@ partition_fun_spear <- function(theta, n_items, log = TRUE) {
 #/' OEIS Foundation Inc. (2023). The On-Line Encyclopedia of Integer Sequences, Published electronically at \url{https://oeis.org}.
 #/'
 log_expect_spear_dist <- function(theta, n_items) {
-  if (n_items > 170) {
-    stop("Computation is limited to at most 170 items")
-  }
 
   out <- suppressMessages(spear_dist_distr(n_items))
   logcardest <- out$logcard
@@ -1243,7 +1347,7 @@ log_expect_spear_dist <- function(theta, n_items) {
 #' @description Compute (either the exact or the approximate) (log-)expectation of the Spearman distance under the Mallow model with Spearman distance.
 #'
 #' @details
-#' When \eqn{n\leq 20}, the expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+#' When \eqn{n\leq 20}, the expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
 #' The expected Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, this is equal to \eqn{\frac{n^3-n}{6}}, which is the expectation of the Spearman distance under the uniform (null) model.
 #'
@@ -1264,7 +1368,8 @@ log_expect_spear_dist <- function(theta, n_items) {
 #'
 #' @examples
 #'
-#' ## Example 1. Expected Spearman distance under the uniform (null) model, coinciding with (n^3-n)/6.
+#' ## Example 1. Expected Spearman distance under the uniform (null) model,
+#' ## coinciding with (n^3-n)/6.
 #' n_items <- 10
 #' expected_spear_dist(theta = 0, n_items = n_items, log = FALSE)
 #' (n_items^3-n_items)/6
@@ -1274,20 +1379,20 @@ log_expect_spear_dist <- function(theta, n_items) {
 #'
 #' ## Example 3. Log-expected Spearman distance as a function of theta.
 #' expected_spear_dist_vec <- Vectorize(expected_spear_dist, vectorize.args = "theta")
-#' curve(suppressMessages(expected_spear_dist_vec(x, n_items = 10)),
+#' curve(expected_spear_dist_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(3, 5.5),
 #'   xlab = expression(theta), ylab = expression(log(E[theta](D))),
 #'   main = "Log-expected Spearman distance")
 #'
 #' ## Example 4. Log-expected Spearman distance for varying number of items
-#' # and values of the concentration parameter.
+#' ## and values of the concentration parameter.
 #' expected_spear_dist_vec <- Vectorize(expected_spear_dist, vectorize.args = "theta")
-#' curve(suppressMessages(expected_spear_dist_vec(x, n_items = 10)),
+#' curve(expected_spear_dist_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(3, 9),
 #'   xlab = expression(theta), ylab = expression(log(E[theta](D))),
 #'   main = "Log-expected Spearman distance")
-#' curve(suppressMessages(expected_spear_dist_vec(x, n_items = 20)), add = TRUE, col = 3, lwd = 2)
-#' curve(suppressMessages(expected_spear_dist_vec(x, n_items = 30)), add = TRUE, col = 4, lwd = 2)
+#' curve(expected_spear_dist_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
+#' curve(expected_spear_dist_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
 #' legend("topright", legend = c(expression(n == 10), expression(n == 20), expression(n == 30)),
 #'   col = 2:4, lwd = 2, bty = "n")
 #'
@@ -1307,7 +1412,6 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 
 
 
-
 # var_spear_dist ----
 #' Variance of the Spearman distance
 #'
@@ -1315,13 +1419,13 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 #'
 #' @details
 #' When \eqn{n\leq 20}, the variance is exactly computed by relying on the Spearman distance distribution
-#' provided by OEIS Foundation Inc. (2023).
-#' When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+#' provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
+#'
+#' When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman
+#' distance under the uniform (null) model.
 #'
 #' The variance of the Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance
 #' of the metric.
-#' When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman
-#' distance under the uniform (null) model.
 #'
 #' @param theta Non-negative precision parameter.
 #' @param n_items Number of items.
@@ -1349,39 +1453,32 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 #'
 #' ## Example 3. Log-variance of the Spearman distance as a function of theta.
 #' var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
-#' curve(suppressMessages(var_spear_dist_vec(x, n_items = 10)),
+#' curve(var_spear_dist_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2,
 #'   xlab = expression(theta), ylab = expression(log(V[theta](D))),
 #'   main = "Log-variance of the Spearman distance")
 #'
 #' ## Example 4. Log--variance of the Spearman distance for varying number of items
-#' # and values of the concentration parameter.
+#' ## and values of the concentration parameter.
 #' var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
-#' curve(suppressMessages(var_spear_dist_vec(x, n_items = 10)),
+#' curve(var_spear_dist_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(5, 14),
 #'   xlab = expression(theta), ylab = expression(log(V[theta](D))),
 #'   main = "Log-variance of the Spearman distance")
-#' curve(suppressMessages(var_spear_dist_vec(x, n_items = 20)), add = TRUE, col = 3, lwd = 2)
-#' curve(suppressMessages(var_spear_dist_vec(x, n_items = 30)), add = TRUE, col = 4, lwd = 2)
+#' curve(var_spear_dist_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
+#' curve(var_spear_dist_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
 #' legend("topright", legend = c(expression(n == 10), expression(n == 20), expression(n == 30)),
 #'   col = 2:4, lwd = 2, bty = "n")
 #'
 #' @export
 #'
 #'
-
+#'
 var_spear_dist <- function(theta,n_items,log=TRUE){
 
   if(theta==0){
     ed2 = n_items^2*(n_items-1)*(n_items+1)^2/36
   }else{
-    if (n_items > 170) {
-      stop("Computation is limited to at most 170 items")
-    }
-
-    if (n_items > 170) {
-      stop("Computation is limited to at most 170 items")
-    }
 
     out <- suppressMessages(spear_dist_distr(n_items))
     logcardest <- out$logcard
@@ -1392,12 +1489,11 @@ var_spear_dist <- function(theta,n_items,log=TRUE){
     out <- log(sum(exp(logcardest + 2*log(distances) - theta * distances - tmp))) -
       log(sum(exp(logcardest - theta * distances - tmp2))) + tmp - tmp2
 
-
     ed2 = exp(out) - expected_spear_dist(theta,n_items,log=FALSE)^2
+
   }
   return(if (log) log(ed2) else ed2)
 }
-
 
 # paired_comparisons ----
 #/' Paired comparison matrix for a partial ranking dataset
@@ -1450,7 +1546,6 @@ itemwise_rank_marginals <- function(rankings, item_names = NULL, borda_ord = TRU
       rankings <- as.matrix(rankings)
     }
   }
-  #
 
   if (!is.null(subset)) {
     rankings <- rankings[(subset & !is.na(subset)), , drop = FALSE]
@@ -1625,42 +1720,75 @@ estn <- function(theta, rho, weights,
 # get_log_card_approx_spearman ----
 #/' Approximate log-frequency distribution of the Spearman distance
 #/'
-#/' @description Compute the approximate log-frequency distribution of the Spearman distance in the case when \eqn{n>15}.
+#/' @description Compute the approximate log-frequency distribution of the Spearman distance in the case when \eqn{n>20}.
 #/' @param n_items Number of items.
 #/'
-get_log_card_approx_spearman <- function(n_items) {
+get_log_card_approx_spearman <- function (n_items) {
   log_n <- lgamma(n_items + 1)
-
-  a0 <- n_items * (-0.24 / sqrt(n_items))
-  a1 <- n_items * (1 / 3 - 0.1784 / sqrt(n_items))
-  a2 <- n_items * (log(2) * 8 / 3 - 5.5241 / sqrt(n_items))
-
+  a0 <- n_items * (-0.24/sqrt(n_items))
+  a1 <- n_items * (1/3 - 0.1784/sqrt(n_items))
+  a2 <- n_items * (log(2) * 8/3 - 5.5241/sqrt(n_items))
   maxd <- 2 * choose(n_items + 1, 3)
-  distances <- seq(0, maxd, 2) # This has problems with n_items too large
+  distances <- seq(0, maxd, 2)
   n_distances <- length(distances)
   logcardest <- rep(NA, n_distances)
-
-
   if (n_items > 3) {
     logcardest[1] <- logcardest[n_distances] <- 0
     logcardest[2] <- logcardest[n_distances - 1] <- log(n_items - 1)
-    logcardest[3] <- logcardest[n_distances - 2] <- log(choose(n_items - 2, 2))
-    logcardest[4] <- logcardest[n_distances - 3] <- log(((n_items - 2)^3) / 6 - (n_items - 2)^2 + 23 * (n_items - 2) / 6 - 1)
-
+    logcardest[3] <- logcardest[n_distances - 2] <- log(choose(n_items -  2, 2))
+    logcardest[4] <- logcardest[n_distances - 3] <- log(((n_items - 2)^3)/6 - (n_items - 2)^2 + 23 * (n_items - 2)/6 - 1)
     dchosen <- distances[5:(n_distances - 4)]
-    x_n <- (dchosen + 1) / (maxd + 2)
-    tmp <- exp(log_n) - sum(exp(logcardest), na.rm = TRUE)# This does not work for n_items>170
+
+    x_n <- (dchosen + 1)/(maxd + 2)
+    tmp <- exp(log_n) - sum(exp(logcardest), na.rm = TRUE)
     tmp2 <- log_n + a0 + a1 * log(x_n * (1 - x_n)) + a2 * x_n * (1 - x_n)
+
     logcardest[5:(n_distances - 4)] <- log(tmp) + tmp2 - log(sum(exp(tmp2)))
-  } else if (n_items == 2) {
+
+  }
+  else if (n_items == 2) {
     logcardest[1] <- logcardest[2] <- 0
-  } else if (n_items == 3) {
+  }
+  else if (n_items == 3) {
     logcardest[1] <- logcardest[5] <- 0
     logcardest[2] <- logcardest[4] <- log(n_items - 1)
     logcardest[3] <- log(choose(n_items - 2, 2))
   }
   return(list(logcard = logcardest, dist = distances))
 }
+
+# get_log_card_approx_spearman_grid ----
+#/' Approximate log-frequency distribution of the Spearman distance over a fixed grid
+#/'
+#/' @description Compute the approximate log-frequency distribution of the Spearman distance over a fixed grid of \eqn{10^6} distance values. This is applied when \eqn{n>170}, to limit the computational buerden and memory space needed when $n$ is very high.
+#/'
+#/' @param n_items Number of items.
+#/'
+get_log_card_approx_spearman_grid <- function (n_items) {
+  n_fac <- factorialZ(n_items)
+  a0 <- n_items * (-0.24/sqrt(n_items))
+  a1 <- n_items * (1/3 - 0.1784/sqrt(n_items))
+  a2 <- n_items * (log(2) * 8/3 - 5.5241/sqrt(n_items))
+  maxd <- 2 * choose(n_items + 1, 3)
+  n_distances <- 10^6
+
+  logcardest <- rep(NA, n_distances)
+  logcardest[1] <- logcardest[n_distances] <- 0
+  logcardest[2] <- logcardest[n_distances - 1] <- log(n_items - 1)
+  logcardest[3] <- logcardest[n_distances - 2] <- log(choose(n_items -  2, 2))
+  logcardest[4] <- logcardest[n_distances - 3] <- log(((n_items - 2)^3)/6 - (n_items - 2)^2 + 23 * (n_items - 2)/6 - 1)
+
+  distances <- round(seq(4, (maxd-8)/2, length.out = n_distances-8))*2
+  x_n <- (distances + 1)/(maxd + 2)
+  tmp <- n_fac - sum(exp(logcardest), na.rm = TRUE)
+  tmp2 <- log(n_fac) + a0 + a1 * log(x_n * (1 - x_n)) + a2 * x_n * (1 - x_n)
+
+  logcardest[5:(n_distances-4)]  <-  log(tmp) + tmp2 - log(sum(exp(tmp2-max(tmp2))))-max(tmp2)
+
+  return(list(logcard = logcardest, dist = c(0,2,4,6,distances,maxd-6,maxd-4,maxd-2,maxd)))
+
+}
+
 
 
 # log_part_funct_spear_hide ----
@@ -1678,7 +1806,6 @@ log_part_funct_spear_hide <- function(theta, distances, logcardest) {
   z <- log(sum(exp(tmp - tmp2))) + tmp2
   return(z)
 } # scalar
-
 
 
 # log_lik_inter_spearman ----
@@ -1790,7 +1917,7 @@ lik_partialMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
     stop("Data augmentation not carried out because of too many missing entries in the partial ranking dataset.")
   }
 
-  cardinalities <- spear_dist_distr(n_items)
+  cardinalities <- suppressMessages(spear_dist_distr(n_items))
 
   if (log) {
     out <- log_lik_db_mix_partial(
@@ -1900,7 +2027,7 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' @details
 #' The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
 #'
-#' When \eqn{n\leq 20}, the (log-)likelihood is exactly computed. When \eqn{n>20}, the model normalizing constant is not available and the (log-)likelihood is approximated with the method introduced by Crispino et al. (2023).
+#' When \eqn{n\leq 20}, the (log-)likelihood is exactly computed. When \eqn{n>20}, the model normalizing constant is not available and is approximated with the method introduced by Crispino et al. (2023). If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
 #' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
 #' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
@@ -1924,7 +2051,8 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' # corresponds to...
 #' 1/factorial(5)
 #'
-#' ## Example 2. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+#' ## Example 2. Simulate rankings from a 2-component mixture of Mallow models
+#' ## with Spearman distance.
 #' set.seed(12345)
 #' d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
 #' str(d_sim)
@@ -2006,7 +2134,7 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #' @details
 #' The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
 #'
-#' When \eqn{n\leq 20}, the (log-)likelihood is exactly computed, otherwise it is approximated with the method introduced by Crispino et al. (2023).
+#' When \eqn{n\leq 20}, the (log-)likelihood is exactly computed, otherwise it is approximated with the method introduced by Crispino et al. (2023). If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
 #' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
 #' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
@@ -2027,7 +2155,8 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #'
 #' @examples
 #'
-#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+#' ## with Spearman distance.
 #' set.seed(12345)
 #' rank_sim <- rMSmix(sample_size = 50, n_items = 12, n_clust = 2)
 #' str(rank_sim)
@@ -2046,31 +2175,6 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #'        rankings = rank_sim$samples)
 #'
 #'
-#' ## Example 2. Simulate rankings from a basic Mallow model with Spearman distance.
-#' set.seed(54321)
-#' rank_sim <- rMSmix(sample_size = 50, n_items = 8, n_clust = 1)
-#' str(rank_sim)
-#' # Let us censor the observations to be top-5 rankings.
-#' rank_sim$samples[rank_sim$samples > 5] <- NA
-#' rankings <- rank_sim$samples
-#' # Fit the true model with the two EM algorithms.
-#' set.seed(54321)
-#' fit_em <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
-#' set.seed(54321)
-#' fit_mcem <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10, mc_em = TRUE)
-#' # Compare the BIC at the true parameter values and at the MLEs.
-#' bicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
-#'        rankings = rank_sim$samples)
-#' bicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
-#'        rankings = rank_sim$samples)
-#' bicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
-#'        rankings = rank_sim$samples)
-#' aicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
-#'        rankings = rank_sim$samples)
-#' aicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
-#'        rankings = rank_sim$samples)
-#' aicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
-#'        rankings = rank_sim$samples)
 #'
 #' @export
 #'
@@ -2251,7 +2355,7 @@ log_expect_spear_dist_hide <- function(theta, distances, logcardest) {
 #/'
 #/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
 #/' @param n_items Number of items.
-#/' @param cardinalities Character string specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
+#/' @param cardinalities Character specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
 #/' @param rhs Right-hand side of the estimation equation of the component-specific precision parameters.
 #/'
 #/' @return TBA
@@ -2275,7 +2379,7 @@ Equation_theta <- function(theta, n_items, cardinalities, rhs) {
 #/'
 #/' @param theta_max
 #/' @param n_items Number of items.
-#/' @param cardinalities Character string specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
+#/' @param cardinalities Character specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
 #/' @param rhs Right-hand side of the estimation equation of the component-specific precision parameters.
 #/'
 #/' @return TBA
@@ -2307,12 +2411,12 @@ Mstep_theta <- function(theta_max, n_items, cardinalities, rhs) {
 #/' EM_DB_MIX
 #/'
 #/' @param rankings_orig A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.
-#/' @param rankings A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.#/' @param metric Character string specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
+#/' @param rankings A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.#/' @param metric Character specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
 #/' @param item_names
 #/' @param freq_compl
 #/' @param partial
 #/' @param rankings_part A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.
-#/' @param freq_part A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.#/' @param metric Character string specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
+#/' @param freq_part A matrix of size \eqn{N}\eqn{\times}{x}\eqn{n} with the observed rankings in each row.#/' @param metric Character specifying the distance measure to use. Available options are \code{"kendall"}, \code{"cayley"} and \code{"hamming"}.
 #/' @param N_partial_rows
 #/' @param partial_rows
 #/' @param missing_entries
@@ -2471,8 +2575,8 @@ em_db_mix <- function(rankings_orig,
     )
 
     if (l >= 2) {
-      if ((log_lik[l] - log_lik[l - 1]) / abs(log_lik[l - 1]) < eps |
-        ((log_lik[l] - log_lik[l - 1]) == 0 & log_lik[l - 1] == 0)) {
+      rat=(log_lik[l] - log_lik[l - 1])/abs(log_lik[l - 1])
+      if (is.nan(rat) | rat<eps) {
         conv <- 1
         l <- n_iter + 1
       }
@@ -2602,7 +2706,7 @@ em_db_mix <- function(rankings_orig,
 #' mms_fit$mod$rho; mms_fit$mod$theta; mms_fit$mod$weights
 #'
 #' ## Example 2. Fit the Mallow model with Spearman distance
-#' ## to simulated partial rankings through data augmentation
+#' ## to simulated partial rankings through data augmentation.
 #' rank_data <- rbind(c(NA, 4, NA, 1, NA), c(NA, NA, NA, NA, 1), c(2, NA, 1, NA, 3),
 #'                    c(4, 2, 3, 5, 1), c(NA, 4, 1, 3, 2))
 #' mms_fit <- fitMSmix(rankings = rank_data, n_start = 10)
@@ -2737,7 +2841,7 @@ fitMSmix <- function(rankings,
     }
   }
 
-  cardinalities <- spear_dist_distr(n_items)
+  cardinalities <- suppressMessages(spear_dist_distr(n_items))
 
   if (!parallel) {
     mod <- vector(mode = "list", length = n_start)
@@ -2920,7 +3024,7 @@ fitMSmix <- function(rankings,
 #' @description \code{print} method for class \code{"emMSmix"}.
 #'
 #'
-#' @param x An object of class \code{"emMSmix"} returned by \code{fitMSmix}.
+#' @param x An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
 #' @rdname fitMSmix
@@ -2952,7 +3056,7 @@ print.emMSmix <- function(x, ...) {
     cat("Presence of partially-ranked sequences in the dataset:",emMSmix_out$partial_data,"\n")
   }
   if (!is.null(emMSmix_out$mod$bic_part)) {
-    cat("BIC_part:", emMSmix_out$mod$bic_part, "(based on partial rankings)\n") # CRI 10/02/2024: aggiunto BIC basato su marginal likelihood
+    cat("BIC_part:", emMSmix_out$mod$bic_part, "(based on partial rankings)\n")
   }
   cat("\n")
   invisible(x)
@@ -2965,7 +3069,7 @@ print.emMSmix <- function(x, ...) {
 #'
 #' @description \code{summary} method for class \code{"emMSmix"}.
 #'
-#' @param object An object of class \code{"emMSmix"} returned by \code{fitMSmix}.
+#' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
 #' @param digits Integer: decimal places for rounding the numerical summaries. Defaults to 3.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
@@ -3034,7 +3138,7 @@ summary.emMSmix <- function(object, digits = 3, ...) {
 #' \code{print} method for class \code{"summary.emMSmix"}.
 #'
 #'
-#' @param x An object of class \code{"summary.emMSmix"} returned by \code{summary.emMSmix}.
+#' @param x An object of class \code{"summary.emMSmix"} returned by \code{\link{summary.emMSmix}}.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
 #'
@@ -3080,7 +3184,7 @@ print.summary.emMSmix <- function(x, ...) {
 #' @description \code{plot} method for class \code{"emMSmix"}.
 #'
 #'
-#' @param x An object of class \code{"emMSmix"} returned by \code{fitMSmix}.
+#' @param x An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
 #' @param max_scale_w Positive scalar: maximum magnification of the dots in the bump plot, set proportional to the MLEs of the weights. Defaults to 20.
 #' @param mar_lr Numeric: margin for the left and right side of the plot. Defaults to 0.4.
 #' @param mar_tb Numeric: margin for the bottom and top side of the plot. Defaults to 0.2.
@@ -3191,27 +3295,25 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
 #' @description Return the bootstrap confidence intervals for the parameters of a mixture of Mallow models with Spearman distance fitted on partial rankings.
 #'
 #' @details
+#' When \code{n_clust = 1}, two types of bootstrap are available: 1) \code{type = "non-parametric"} (default);
+#' \code{type = "parametric"}, where the latter supports full rankings only.
+#'
 #' When \code{n_clust > 1}, two types of bootstrap are available: 1) \code{type = "soft"} (default), which is
 #' the soft-separated bootstrap (Crispino et al., 2024+) and returns confidence intervals for all
 #' the parameters of the mixture of Mallow models with Spearman distance; 2) \code{type = "separated"}, which is the separated bootstrap
 #' (Taushanov and Berchtold, 2019) and returns bootstrap samples for the component-specific
 #' consensus rankings and precisions.
 #'
-#' When \code{n_clust = 1}, \code{type} can be either \code{"non-parametric"} (default) or
-#' \code{"parametric"}, where the latter supports full rankings only.
-#'
-#' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.
+#' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
+#' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with the rankings on which the mixture of Mallows models has been fitted.
 #' @param n_boot Number of desired bootstrap samples. Defaults to 50.
 #' @param conf_level Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.
-#' @param n_clust Number of mixture components. Defaults to 1.
-#' @param z_hat Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated component membership probabilities. This coincides with the object \code{z_hat} returned by \code{fitMSmix}, needed when \code{n_clust > 1}.
-#' @param type Character string indicating which bootstrap method must be used. Options are: \code{"soft"}, \code{"separated"}, \code{"non-parametric"}, \code{"parametric"}. Defaults to \code{"soft"} when \code{n_clust > 1} and to \code{"non-parametric"} when \code{n_clust = 1}. See Details.
-#' @param rho_mle Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the MLE of the component-specific consensus rankings in each row. Needed when \code{type = parametric}. When \code{NULL}, the MLEs are automatically computed.
-#' @param theta_mle Numeric vector with the MLE of the \eqn{G} component-specific precision parameters. Needed for parametric bootstrap. When \code{NULL}, the MLEs are automatically computed.
+#' @param type Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} or \code{"parametric"}, for the \eqn{G=1} case, and \code{"soft"} or \code{"separated"}, for the \eqn{G>1} case. Defaults to \code{"soft"} when \code{n_clust > 1} and to \code{"non-parametric"} when \code{n_clust = 1}. See Details.
 #' @param n_start Number of starting points for the MLE on each bootstrap sample. Defaults to 10.
 #' @param mc_em Logical: whether the Monte Carlo EM algorithm must be used for MLE on partial rankings. Ignored when \code{rankings} does not contain any partial sequence. Defaults to \code{FALSE}.
 #' @param item_names Character vector for the names of the items. Defaults to NULL, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
 #' @param all Logical: whether the bootstrap samples of the MLEs for all the parameters must be returned. Defaults to \code{FALSE}.
+#' @param parallel Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings. Defaults to \code{FALSE}.
 #'
 #' @return
 #' An object of class \code{"bootMSmix"}, namely a list with the following named components:
@@ -3246,45 +3348,52 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
 #' set.seed(12345)
 #' fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 1, n_start = 1)
 #' # Apply non-parametric bootstrap procedure.
-#' boot_np <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 1, n_boot = 200)
-#' boot_np
+#' set.seed(12345)
+#' boot_np <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200)
+#' boot_np$itemwise_ci_rho; boot_np$ci_boot_theta;
 #' # Apply parametric bootstrap procedure and set all = TRUE
 #' # to return the bootstrap MLEs of the consensus ranking.
-#' boot_p <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 1, n_boot = 200,
-#'                        rho_mle = fit$mod$rho, theta_mle = fit$mod$theta,
+#' set.seed(12345)
+#' boot_p <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200,
 #'                        type = "parametric", all = TRUE)
+#' boot_p$itemwise_ci_rho; boot_p$ci_boot_theta;
 #' plot(boot_p)
 #'
-#'
 #' ## Example 2. Compute the bootstrap 95% confidence intervals for the Antifragility dataset.
-#' # Let us assume 2 clusters and apply soft bootstrap.
+#' # Let us assume two clusters and apply soft bootstrap.
 #' set.seed(12345)
 #' fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 2, n_start = 20)
-#' # Apply soft bootstrap procedure.
-#' boot_soft <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 2, z_hat = fit$mod$z_hat,
-#'                       n_boot = 500, n_start = 20, all = TRUE)
+#' set.seed(12345)
+#' boot_soft <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+#'                       n_start = 20, all = TRUE)
 #' plot(boot_soft)
 #' # Apply separated bootstrap and compare results.
-#' boot_sep <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 2, z_hat = fit$mod$z_hat,
-#'                       n_boot = 500, n_start = 20,
-#'                       rho_mle = fit$mod$rho, theta_mle = fit$mod$theta,
-#'                       type = "separated", all = TRUE)
+#' set.seed(12345)
+#' boot_sep <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+#'                      n_start = 20, type = "separated", all = TRUE)
 #' plot(boot_sep)
+#' boot_soft$itemwise_ci_rho; boot_soft$ci_boot_theta; boot_soft$ci_boot_weights;
+#' boot_sep$itemwise_ci_rho; boot_sep$ci_boot_theta; boot_soft$ci_boot_weights;
+#'
 #'
 #' @export
 #'
-bootstrapMSmix <- function(rankings,
+bootstrapMSmix <- function(object,
+                           rankings,
                          n_boot = 50,
                          conf_level = 0.95,
-                         n_clust = 1,
-                         z_hat = (if(n_clust == 1) NULL),
                          type = (if(n_clust == 1) "non-parametric" else "soft"),
-                         rho_mle = NULL,
-                         theta_mle = NULL,
                          n_start = 10,
                          mc_em = FALSE,
                          item_names = NULL,
-                         all = FALSE) {
+                         all = FALSE,
+                         parallel = FALSE) {
+
+  emMSmix_out <- object
+
+  if (!is(emMSmix_out, "emMSmix")) {
+    stop("The function requires an object of S3 class 'emMSmix' as its first argument.")
+  }
 
   if (!is.matrix(rankings)) {
     if (is.vector(rankings)) {
@@ -3295,7 +3404,6 @@ bootstrapMSmix <- function(rankings,
   }
 
   n_items <- ncol(rankings)
-  N <- nrow(rankings)
 
   if (is.null(item_names)) {
     item_names <- colnames(rankings)
@@ -3304,26 +3412,33 @@ bootstrapMSmix <- function(rankings,
     }
   }
 
+  n_clust <- length(emMSmix_out$mod$theta)
+  mc_em <- !is.null(emMSmix_out$mod$augmented_rankings)
+
+
   if (n_clust == 1) {
     out <- homo_bootstrapMSmix(
       rankings = rankings,
       n_boot = n_boot,
       type = type,
-      rho_mle = rho_mle,
-      theta_mle = theta_mle,
+      rho_mle = emMSmix_out$mod$rho,
+      theta_mle = emMSmix_out$mod$theta,
       n_start = n_start,
       mc_em = mc_em,
-      item_names = item_names
+      item_names = item_names,
+      parallel = parallel
     )
   } else {
     out <- hetero_bootstrapMSmix(
       rankings = rankings,
       n_boot = n_boot,
       type = type,
-      z_hat = z_hat,
+      z_hat = emMSmix_out$mod$z_hat,
+      classification = emMSmix_out$mod$map_classification,
       n_start = n_start,
       mc_em = mc_em,
-      item_names = item_names
+      item_names = item_names,
+      parallel = parallel
     )
   }
 
@@ -3368,7 +3483,7 @@ bootstrapMSmix <- function(rankings,
 
   out_boot <- list(itemwise_ci_rho = ci_rho,
               ci_boot_theta = ci_theta,
-              ci_boot_weight = ci_weights,
+              ci_boot_weights = ci_weights,
               boot = (if (all) out else NULL))
 
   class(out_boot) <- "bootMSmix"
@@ -3387,7 +3502,13 @@ homo_bootstrapMSmix <- function(rankings,
                               theta_mle,
                               n_start,
                               mc_em,
-                              item_names) {
+                              item_names,
+                              parallel) {
+
+  if ((type == "soft") | (type == "separated")) {
+    stop("Only parametric and non-parametric bootstrap types are available for mixtures with a single component.")
+  }
+
   if (!is.matrix(rankings)) {
     if (is.vector(rankings)) {
       rankings <- matrix(rankings, nrow = 1)
@@ -3405,24 +3526,12 @@ homo_bootstrapMSmix <- function(rankings,
   check_na <- is.na(rankings)
   partial <- any(check_na)
 
-  cardinalities <- spear_dist_distr(n_items)
+  cardinalities <- suppressMessages(spear_dist_distr(n_items))
+
 
   rho_boot <- list()
   rho_boot[[1]] <- matrix(NA, ncol = n_items, nrow = n_boot)
   theta_boot <- rep(NA, n_boot)
-
-  if (!(partial) & (type == "parametric")) {
-    if (is.null(rho_mle) & is.null(theta_mle)) {
-      warning("MLEs have been computed because not supplied by the user.")
-      rho_mle <- rank(colMeans(rankings), ties.method = "random")
-      rhs <- mean(compute_rank_distance(rankings, rho_mle, "spearman"))
-      theta_mle <- Mstep_theta(theta_max = 3, n_items = n_items, cardinalities = cardinalities, rhs = rhs)
-    } else {
-      if (is.null(rho_mle) | is.null(theta_mle)) {
-        stop(paste("The MLE of one of the parameters has not been supplied."))
-      }
-    }
-  }
 
   for (h in 1:n_boot) {
     if (h %% 50 == 0) {
@@ -3437,7 +3546,8 @@ homo_bootstrapMSmix <- function(rankings,
           rankings = Rstar,
           n_clust = 1,
           n_start = n_start,
-          mc_em = mc_em
+          mc_em = mc_em,
+          parallel = parallel
         ))
 
         rho_boot[[1]][h, ] <- FIT$mod$rho
@@ -3451,6 +3561,7 @@ homo_bootstrapMSmix <- function(rankings,
       if (partial) {
         stop("Only non-parametric bootstrap is available for partial rankings.")
       } else {
+
         Rstar <- spsUtil::quiet(rMSmix(
           sample_size = N,
           n_items = n_items,
@@ -3483,11 +3594,14 @@ hetero_bootstrapMSmix <- function(rankings,
                                 n_boot,
                                 type,
                                 z_hat,
+                                classification,
                                 n_start,
                                 mc_em,
-                                item_names) {
+                                item_names,
+                                parallel) {
+
   if ((type == "parametric") | (type == "non-parametric")) {
-    stop("Only soft and separated bootstrap types are available for mixtures")
+    stop("Only soft and separated bootstrap types are available for mixtures.")
   }
 
   if (!is.matrix(rankings)) {
@@ -3509,7 +3623,7 @@ hetero_bootstrapMSmix <- function(rankings,
   check_na <- is.na(rankings)
   partial <- any(check_na)
 
-  cardinalities <- spear_dist_distr(n_items)
+  cardinalities <- suppressMessages(spear_dist_distr(n_items))
 
   rho_boot <- rep(list(matrix(NA, nrow = n_boot, ncol = n_items, dimnames = list(NULL, item_names))), n_clust)
   names(rho_boot) <- paste0("Group", 1:n_clust)
@@ -3517,7 +3631,6 @@ hetero_bootstrapMSmix <- function(rankings,
   theta_boot <- matrix(NA, nrow = n_boot, ncol = n_clust)
 
   if (type != "soft") {
-    classification <- apply(z_hat, 1, which.max)
     Rg <- split(x = as.data.frame(rankings), f = classification)
     Rg <- lapply(Rg, as.matrix)
     freq <- tabulate(classification, nbins = n_clust)
@@ -3540,7 +3653,8 @@ hetero_bootstrapMSmix <- function(rankings,
             rankings = Rstar,
             n_clust = 1,
             n_start = n_start,
-            mc_em = mc_em
+            mc_em = mc_em,
+            parallel = parallel
           ))
           rho_boot[[g]][h, ] <- FIT$mod$rho
           theta_boot[h, g] <- FIT$mod$theta
@@ -3565,7 +3679,8 @@ hetero_bootstrapMSmix <- function(rankings,
             rankings = Rstar,
             n_clust = 1,
             n_start = n_start,
-            mc_em = mc_em
+            mc_em = mc_em,
+            parallel = parallel
           ))
           rho_boot[[g]][h, ] <- FIT$mod$rho
           theta_boot[h, g] <- FIT$mod$theta
@@ -3583,16 +3698,13 @@ hetero_bootstrapMSmix <- function(rankings,
   return(out)
 }
 
-
-
-
 # plot.bootMSmix ----
 #' Plot the bootstrap confidence intervals of the consensus rankings estimates
 #'
 #' @description \code{plot} method for class \code{"bootMSmix"}.
 #'
 #'
-#' @param x An object of class \code{"bootMSmix"} returned by \code{bootstrapMSmix}.
+#' @param x An object of class \code{"bootMSmix"} returned by \code{\link{bootstrapMSmix}}.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
 #' @return
@@ -3739,17 +3851,15 @@ plot.bootMSmix <- function(x, ...) {
 
 }
 
-
 # confintMSmix ----
 #' Hessian-based confidence intervals for mixtures of Mallows models with Spearman distance
 #'
-#' @description Return the Hessian-based confidence intervals of the continuous parameters of a mixture of Mallow models with Spearman distance, namely the component-specific precisions and weights.
+#' @description Return the Hessian-based confidence intervals of the continuous parameters of a mixture of Mallow models with Spearman distance fitted to full rankings, namely the component-specific precisions and weights.
 #'
-#' @param n_items Number of items.
-#' @param sample_size Number of rankings in the observed sample.
-#' @param theta_mle Numeric vector with the MLEs of the \eqn{G} component-specific precision parameters.
-#' @param weights_mle Numeric vector with the MLEs of the \eqn{G} mixture weights.
-#' @param z_hat Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated component membership probabilities. This coincides with the object \code{z_hat} returned by \code{fitMSmix}, needed when \code{n_clust > 1}.
+#' @details The current implementation of the hessian-based confidence intervals assumes that the observed rankings are complete.
+#'
+#' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
+#' @param sample_size Number of rankings in the observed sample. Needed only when the estimated mixture has a single (\eqn{G=1}) component.
 #' @param conf_level Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.
 #'
 #'
@@ -3768,47 +3878,59 @@ plot.bootMSmix <- function(x, ...) {
 #'
 #' @examples
 #'
-#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+#' ## with Spearman distance.
 #' set.seed(123)
 #' d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
-#' str(d_sim)
-#' # Fit the true model.
 #' rankings <- d_sim$samples
+#' # Fit the basic Mallows model with Spearman distance.
 #' set.seed(123)
-#' fit <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
+#' fit1 <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
+#' # Compute the hessian-based confidence intervals for the MLEs of the precision.
+#' confintMSmix(object = fit1, sample_size=nrow(rankings))
+#' # Fit the true model.
+#' set.seed(123)
+#' fit2 <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
 #' # Compute the hessian-based confidence intervals for the MLEs of the weights and precisions.
-#' confintMSmix(n_items = ncol(rankings), sample_size = nrow(rankings),
-#'                 theta_mle = fit$mod$theta, weights_mle = fit$mod$weights,
-#'                 z_hat = fit$mod$z_hat)
+#' confintMSmix(object = fit2)
 #'
 #' @export
 #'
-confintMSmix<- function (n_items, sample_size, theta_mle,
-                              weights_mle = (if (length(theta_mle) == 1) NULL),
-                              z_hat = (if (length(theta_mle) == 1) NULL),
-                              conf_level = 0.95)
+confintMSmix<- function (object,
+                          sample_size=(if(length(object$mod$theta)>1) NULL),
+                          conf_level = 0.95)
 {
 
-  if (length(theta_mle) == 1){
-    N <- sample_size } else {
-      N <- colSums(z_hat)
-    }
+  emMSmix_out <- object
 
+  if (!is(emMSmix_out, "emMSmix")) {
+    stop("The function requires an object of S3 class 'emMSmix' as its first argument.")
+  }
+
+  if (emMSmix_out$partial_data) {
+    stop("The function assumes that the fitted dataset is composed of full rankings only.")
+  }
+
+  n_items <- ncol(emMSmix_out$mod$rho)
+  theta_mle <- emMSmix_out$mod$theta
   n_clust <- length(theta_mle)
+
+  if (n_clust == 1){
+    if(is.null(sample_size)){
+      stop("Please specify the sample size.")
+    }
+    N <- sample_size
+  } else {
+    N <- colSums(emMSmix_out$mod$z_hat)
+  }
+
   z_level <- qnorm((1 - conf_level)/2, lower.tail = FALSE)
-  tmp <- spear_dist_distr(n_items)
-  dist <- tmp$distances
-  logcard <- tmp$logcard
+
   se_theta <- ci_t_l <- ci_t_u <- rep(NA, n_clust)
 
   for (g in 1:n_clust) {
-    ed <- (sum(dist * exp(-theta_mle[g] * dist + logcard)))/(sum(exp(-theta_mle[g] *
-                                                                       dist + logcard)))
-    ed2 <- (sum(dist^2 * exp(-theta_mle[g] * dist + logcard)))/(sum(exp(-theta_mle[g] *
-                                                                          dist + logcard)))
-    Vardist <- ed2 - ed^2
+    Vardist <- var_spear_dist(theta_mle[g],n_items,log=FALSE)
     se_theta[g] <- 1/sqrt(N[g] * Vardist)
-    # ci_t_l[g] <- round(theta_mle[g] - (z_level * se_theta[g]),3)
     ci_t_l[g] <- max(0,round(theta_mle[g] - (z_level * se_theta[g]),3))
     ci_t_u[g] <- round(theta_mle[g] + (z_level * se_theta[g]),3)
   }
@@ -3817,6 +3939,7 @@ confintMSmix<- function (n_items, sample_size, theta_mle,
   rownames(ci_theta) <- paste0("Group", 1:n_clust)
 
   if (n_clust > 1) {
+    weights_mle <- emMSmix_out$mod$weights
     se_w <- 1/sqrt((N/weights_mle^2)[-n_clust] + (N/weights_mle^2)[n_clust])
     se_w <- c(se_w, sqrt(sum(se_w[1:(n_clust - 1)]^2)))
     ci_w_l <- weights_mle - (z_level * se_w/sqrt(N))

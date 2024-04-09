@@ -53,7 +53,7 @@ fitMSmix(
 
 \item{item_names}{Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
 
-\item{x}{An object of class \code{"emMSmix"} returned by \code{fitMSmix}.}
+\item{x}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
 \item{...}{Further arguments passed to or from other methods (not used).}
 }
@@ -108,7 +108,7 @@ mms_fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 3, n_start = 10)
 mms_fit$mod$rho; mms_fit$mod$theta; mms_fit$mod$weights
 
 ## Example 2. Fit the Mallow model with Spearman distance
-## to simulated partial rankings through data augmentation
+## to simulated partial rankings through data augmentation.
 rank_data <- rbind(c(NA, 4, NA, 1, NA), c(NA, NA, NA, NA, 1), c(2, NA, 1, NA, 3),
                    c(4, 2, 3, 5, 1), c(NA, 4, 1, 3, 2))
 mms_fit <- fitMSmix(rankings = rank_data, n_start = 10)

@@ -28,8 +28,9 @@ The completion of a full ranking returns the complete ranking itself.
 data_completion(rankings = c(3, NA, NA, 1, NA), reference_rho = c(4, 5, 1, 3, 2))
 
 ## Example 2. Completion of partial rankings with arbitrary censoring patterns.
-data_completion(rankings = rbind(c(3, NA, NA, 7, 2, NA, NA), c(NA, 6, NA, 5, NA, NA, 1),7:1),
-                reference_rho = rbind(c(4, 5, 6, 1, 3, 7, 2), 7:1, 1:7))
+rankings <- rbind(c(3, NA, NA, 7, 2, NA, NA), c(NA, 6, NA, 5, NA, NA, 1),7:1)
+data_completion(rankings = rankings, reference_rho = rbind(c(4, 5, 6, 1, 3, 7, 2),
+                7:1, 1:7))
 
 }
 \references{

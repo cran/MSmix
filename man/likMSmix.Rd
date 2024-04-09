@@ -33,7 +33,7 @@ Partial rankings with arbitrary missing positions are supported.
 \details{
 The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
 
-When \eqn{n\leq 20}, the (log-)likelihood is exactly computed. When \eqn{n>20}, the model normalizing constant is not available and the (log-)likelihood is approximated with the method introduced by Crispino et al. (2023).
+When \eqn{n\leq 20}, the (log-)likelihood is exactly computed. When \eqn{n>20}, the model normalizing constant is not available and is approximated with the method introduced by Crispino et al. (2023). If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 }
 \examples{
 
@@ -42,7 +42,8 @@ likMSmix(rho = 1:5, theta = 0, weights = 1, rankings = c(3,5,2,1,4), log = FALSE
 # corresponds to...
 1/factorial(5)
 
-## Example 2. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+## Example 2. Simulate rankings from a 2-component mixture of Mallow models
+## with Spearman distance.
 set.seed(12345)
 d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
 str(d_sim)

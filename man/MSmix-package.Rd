@@ -40,6 +40,7 @@ The suite of functions available in the \pkg{MSmix} package is composed of:
 \strong{Ranking data manipulation}
 \describe{
 \item{\code{\link{data_conversion}}}{From rankings to orderings and vice versa.}
+\item{\code{\link{data_censoring}}}{Censoring of full rankings.}
 \item{\code{\link{data_completion}}}{Deterministic completion of partial rankings
 with full reference rankings.}
 \item{\code{\link{data_augmentation}}}{Generate all full rankings compatible with

@@ -27,11 +27,12 @@ The BIC or AIC value.
 \details{
 The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
 
-When \eqn{n\leq 20}, the (log-)likelihood is exactly computed, otherwise it is approximated with the method introduced by Crispino et al. (2023).
+When \eqn{n\leq 20}, the (log-)likelihood is exactly computed, otherwise it is approximated with the method introduced by Crispino et al. (2023). If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 }
 \examples{
 
-## Example 1. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+## with Spearman distance.
 set.seed(12345)
 rank_sim <- rMSmix(sample_size = 50, n_items = 12, n_clust = 2)
 str(rank_sim)
@@ -50,31 +51,6 @@ aicMSmix(rho = fit$mod$rho, theta = fit$mod$theta, weights = fit$mod$weights,
        rankings = rank_sim$samples)
 
 
-## Example 2. Simulate rankings from a basic Mallow model with Spearman distance.
-set.seed(54321)
-rank_sim <- rMSmix(sample_size = 50, n_items = 8, n_clust = 1)
-str(rank_sim)
-# Let us censor the observations to be top-5 rankings.
-rank_sim$samples[rank_sim$samples > 5] <- NA
-rankings <- rank_sim$samples
-# Fit the true model with the two EM algorithms.
-set.seed(54321)
-fit_em <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
-set.seed(54321)
-fit_mcem <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10, mc_em = TRUE)
-# Compare the BIC at the true parameter values and at the MLEs.
-bicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
-       rankings = rank_sim$samples)
-bicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
-       rankings = rank_sim$samples)
-bicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
-       rankings = rank_sim$samples)
-aicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
-       rankings = rank_sim$samples)
-aicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
-       rankings = rank_sim$samples)
-aicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
-       rankings = rank_sim$samples)
 
 }
 \references{

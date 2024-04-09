@@ -6,38 +6,30 @@
 \title{Bootstrap confidence intervals for mixtures of Mallows models with Spearman distance}
 \usage{
 bootstrapMSmix(
+  object,
   rankings,
   n_boot = 50,
   conf_level = 0.95,
-  n_clust = 1,
-  z_hat = (if (n_clust == 1) NULL),
   type = (if (n_clust == 1) "non-parametric" else "soft"),
-  rho_mle = NULL,
-  theta_mle = NULL,
   n_start = 10,
   mc_em = FALSE,
   item_names = NULL,
-  all = FALSE
+  all = FALSE,
+  parallel = FALSE
 )
 
 \method{plot}{bootMSmix}(x, ...)
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
+\item{object}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
+
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with the rankings on which the mixture of Mallows models has been fitted.}
 
 \item{n_boot}{Number of desired bootstrap samples. Defaults to 50.}
 
 \item{conf_level}{Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
 
-\item{n_clust}{Number of mixture components. Defaults to 1.}
-
-\item{z_hat}{Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated component membership probabilities. This coincides with the object \code{z_hat} returned by \code{fitMSmix}, needed when \code{n_clust > 1}.}
-
-\item{type}{Character string indicating which bootstrap method must be used. Options are: \code{"soft"}, \code{"separated"}, \code{"non-parametric"}, \code{"parametric"}. Defaults to \code{"soft"} when \code{n_clust > 1} and to \code{"non-parametric"} when \code{n_clust = 1}. See Details.}
-
-\item{rho_mle}{Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the MLE of the component-specific consensus rankings in each row. Needed when \code{type = parametric}. When \code{NULL}, the MLEs are automatically computed.}
-
-\item{theta_mle}{Numeric vector with the MLE of the \eqn{G} component-specific precision parameters. Needed for parametric bootstrap. When \code{NULL}, the MLEs are automatically computed.}
+\item{type}{Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} or \code{"parametric"}, for the \eqn{G=1} case, and \code{"soft"} or \code{"separated"}, for the \eqn{G>1} case. Defaults to \code{"soft"} when \code{n_clust > 1} and to \code{"non-parametric"} when \code{n_clust = 1}. See Details.}
 
 \item{n_start}{Number of starting points for the MLE on each bootstrap sample. Defaults to 10.}
 
@@ -47,7 +39,9 @@ bootstrapMSmix(
 
 \item{all}{Logical: whether the bootstrap samples of the MLEs for all the parameters must be returned. Defaults to \code{FALSE}.}
 
-\item{x}{An object of class \code{"bootMSmix"} returned by \code{bootstrapMSmix}.}
+\item{parallel}{Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings. Defaults to \code{FALSE}.}
+
+\item{x}{An object of class \code{"bootMSmix"} returned by \code{\link{bootstrapMSmix}}.}
 
 \item{...}{Further arguments passed to or from other methods (not used).}
 }
@@ -77,14 +71,14 @@ Return the bootstrap confidence intervals for the parameters of a mixture of Mal
 \code{plot} method for class \code{"bootMSmix"}.
 }
 \details{
+When \code{n_clust = 1}, two types of bootstrap are available: 1) \code{type = "non-parametric"} (default);
+\code{type = "parametric"}, where the latter supports full rankings only.
+
 When \code{n_clust > 1}, two types of bootstrap are available: 1) \code{type = "soft"} (default), which is
 the soft-separated bootstrap (Crispino et al., 2024+) and returns confidence intervals for all
 the parameters of the mixture of Mallow models with Spearman distance; 2) \code{type = "separated"}, which is the separated bootstrap
 (Taushanov and Berchtold, 2019) and returns bootstrap samples for the component-specific
 consensus rankings and precisions.
-
-When \code{n_clust = 1}, \code{type} can be either \code{"non-parametric"} (default) or
-\code{"parametric"}, where the latter supports full rankings only.
 }
 \examples{
 
@@ -93,30 +87,33 @@ When \code{n_clust = 1}, \code{type} can be either \code{"non-parametric"} (defa
 set.seed(12345)
 fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 1, n_start = 1)
 # Apply non-parametric bootstrap procedure.
-boot_np <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 1, n_boot = 200)
-boot_np
+set.seed(12345)
+boot_np <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200)
+boot_np$itemwise_ci_rho; boot_np$ci_boot_theta;
 # Apply parametric bootstrap procedure and set all = TRUE
 # to return the bootstrap MLEs of the consensus ranking.
-boot_p <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 1, n_boot = 200,
-                       rho_mle = fit$mod$rho, theta_mle = fit$mod$theta,
+set.seed(12345)
+boot_p <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200,
                        type = "parametric", all = TRUE)
+boot_p$itemwise_ci_rho; boot_p$ci_boot_theta;
 plot(boot_p)
 
-
 ## Example 2. Compute the bootstrap 95\% confidence intervals for the Antifragility dataset.
-# Let us assume 2 clusters and apply soft bootstrap.
+# Let us assume two clusters and apply soft bootstrap.
 set.seed(12345)
 fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 2, n_start = 20)
-# Apply soft bootstrap procedure.
-boot_soft <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 2, z_hat = fit$mod$z_hat,
-                      n_boot = 500, n_start = 20, all = TRUE)
+set.seed(12345)
+boot_soft <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+                      n_start = 20, all = TRUE)
 plot(boot_soft)
 # Apply separated bootstrap and compare results.
-boot_sep <- bootstrapMSmix(rankings = ranks_antifragility, n_clust = 2, z_hat = fit$mod$z_hat,
-                      n_boot = 500, n_start = 20,
-                      rho_mle = fit$mod$rho, theta_mle = fit$mod$theta,
-                      type = "separated", all = TRUE)
+set.seed(12345)
+boot_sep <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+                     n_start = 20, type = "separated", all = TRUE)
 plot(boot_sep)
+boot_soft$itemwise_ci_rho; boot_soft$ci_boot_theta; boot_soft$ci_boot_weights;
+boot_sep$itemwise_ci_rho; boot_sep$ci_boot_theta; boot_soft$ci_boot_weights;
+
 
 }
 \references{

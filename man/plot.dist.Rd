@@ -14,7 +14,7 @@
 )
 }
 \arguments{
-\item{x}{An object of class \code{"dist"}, returned by \code{spear_dist} when setting the argument \code{rho = NULL}.}
+\item{x}{An object of class \code{"dist"}, returned by \code{\link{spear_dist}} when setting the argument \code{rho = NULL}.}
 
 \item{order}{Logical: whether the rows of the distance matrix must be ordered. Defaults to \code{TRUE}.}
 

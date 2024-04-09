@@ -18,25 +18,23 @@ A list of two named objects:
 \item{\code{logcard}}{(Log)-frequencies corresponding to each value in \code{distances}.}
 }
 \description{
-Provide (either the exact or the approximate) frequency distribution of the Spearman distance under the uniform (null) ranking model. Currently, it works for \eqn{n\leq 170}.
+Provide (either the exact or the approximate) frequency distribution of the Spearman distance under the uniform (null) ranking model.
 }
 \details{
-When \eqn{n\leq 20}, the exact distribution provided by OEIS Foundation Inc. (2023) is returned by relying on a call to the \code{get_cardinalities} routine of the \code{BayesMallows} package.
-
-When \eqn{20<n\leq 170}, the approximate distribution introduced by Crispino et al. (2023) is returned.
+When \eqn{n\leq 20}, the exact distribution provided by OEIS Foundation Inc. (2023) is returned by relying on a call to the \code{get_cardinalities} routine of the \code{BayesMallows} package. When \eqn{n>20}, the approximate distribution introduced by Crispino et al. (2023) is returned. If \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 }
 \examples{
 
 ## Example 1. Exact Spearman distance distribution for n=20 items.
 distr <- spear_dist_distr(n_items = 20, log = FALSE)
-plot(distr$distances,distr$logcard,type='h',ylab = 'probability',xlab='d',
-main='distribution of the spearman distance under the null model')
+plot(distr$distances,distr$logcard,type='l',ylab = 'Frequency',xlab='d',
+main='Distribution of the Spearman distance\nunder the null model')
 
 
 ## Example 2. Approximate Spearman distance distribution for n=50 items with log-frequencies.
 distr <- spear_dist_distr(n_items = 50)
-plot(distr$distances,distr$logcard,type='h',ylab = 'log-probability',xlab='d',
-    main='log-distribution of the spearman distance under the null model')
+plot(distr$distances,distr$logcard,type='l',ylab = 'Log-frequency',xlab='d',
+    main='Log-distribution of the Spearman distance\nunder the null model')
 
 }
 \references{

@@ -21,13 +21,13 @@ Compute (either the exact or the approximate) (log-)variance of the Spearman dis
 }
 \details{
 When \eqn{n\leq 20}, the variance is exactly computed by relying on the Spearman distance distribution
-provided by OEIS Foundation Inc. (2023).
-When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
+
+When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman
+distance under the uniform (null) model.
 
 The variance of the Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance
 of the metric.
-When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman
-distance under the uniform (null) model.
 }
 \examples{
 
@@ -42,20 +42,20 @@ var_spear_dist(theta = 0.5, n_items = 10, log = FALSE)
 
 ## Example 3. Log-variance of the Spearman distance as a function of theta.
 var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
-curve(suppressMessages(var_spear_dist_vec(x, n_items = 10)),
+curve(var_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2,
   xlab = expression(theta), ylab = expression(log(V[theta](D))),
   main = "Log-variance of the Spearman distance")
 
 ## Example 4. Log--variance of the Spearman distance for varying number of items
-# and values of the concentration parameter.
+## and values of the concentration parameter.
 var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
-curve(suppressMessages(var_spear_dist_vec(x, n_items = 10)),
+curve(var_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(5, 14),
   xlab = expression(theta), ylab = expression(log(V[theta](D))),
   main = "Log-variance of the Spearman distance")
-curve(suppressMessages(var_spear_dist_vec(x, n_items = 20)), add = TRUE, col = 3, lwd = 2)
-curve(suppressMessages(var_spear_dist_vec(x, n_items = 30)), add = TRUE, col = 4, lwd = 2)
+curve(var_spear_dist_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
+curve(var_spear_dist_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
 legend("topright", legend = c(expression(n == 10), expression(n == 20), expression(n == 30)),
   col = 2:4, lwd = 2, bty = "n")
 

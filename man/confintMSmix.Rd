@@ -5,24 +5,15 @@
 \title{Hessian-based confidence intervals for mixtures of Mallows models with Spearman distance}
 \usage{
 confintMSmix(
-  n_items,
-  sample_size,
-  theta_mle,
-  weights_mle = (if (length(theta_mle) == 1) NULL),
-  z_hat = (if (length(theta_mle) == 1) NULL),
+  object,
+  sample_size = (if (length(object$mod$theta) > 1) NULL),
   conf_level = 0.95
 )
 }
 \arguments{
-\item{n_items}{Number of items.}
+\item{object}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
-\item{sample_size}{Number of rankings in the observed sample.}
-
-\item{theta_mle}{Numeric vector with the MLEs of the \eqn{G} component-specific precision parameters.}
-
-\item{weights_mle}{Numeric vector with the MLEs of the \eqn{G} mixture weights.}
-
-\item{z_hat}{Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated component membership probabilities. This coincides with the object \code{z_hat} returned by \code{fitMSmix}, needed when \code{n_clust > 1}.}
+\item{sample_size}{Number of rankings in the observed sample. Needed only when the estimated mixture has a single (\eqn{G=1}) component.}
 
 \item{conf_level}{Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
 }
@@ -33,22 +24,28 @@ A list with the following named components:
 \item{\code{ci_weights}}{The confidence intervals for the mixture weights. Returned when \eqn{G>1}.}
 }
 \description{
-Return the Hessian-based confidence intervals of the continuous parameters of a mixture of Mallow models with Spearman distance, namely the component-specific precisions and weights.
+Return the Hessian-based confidence intervals of the continuous parameters of a mixture of Mallow models with Spearman distance fitted to full rankings, namely the component-specific precisions and weights.
+}
+\details{
+The current implementation of the hessian-based confidence intervals assumes that the observed rankings are complete.
 }
 \examples{
 
-## Example 1. Simulate rankings from a 2-component mixture of Mallow models with Spearman distance.
+## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+## with Spearman distance.
 set.seed(123)
 d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
-str(d_sim)
-# Fit the true model.
 rankings <- d_sim$samples
+# Fit the basic Mallows model with Spearman distance.
 set.seed(123)
-fit <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
+fit1 <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
+# Compute the hessian-based confidence intervals for the MLEs of the precision.
+confintMSmix(object = fit1, sample_size=nrow(rankings))
+# Fit the true model.
+set.seed(123)
+fit2 <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
 # Compute the hessian-based confidence intervals for the MLEs of the weights and precisions.
-confintMSmix(n_items = ncol(rankings), sample_size = nrow(rankings),
-                theta_mle = fit$mod$theta, weights_mle = fit$mod$weights,
-                z_hat = fit$mod$z_hat)
+confintMSmix(object = fit2)
 
 }
 \references{

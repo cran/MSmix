@@ -1,0 +1,31 @@
+NEWS/ChangeLog for MSmix
+--------------------------
+
+1.0.1   2024-04-08
+
+BUG FIXES
+    o   fitMSmix(...)
+        [::] stopping rule of the EM algorithm adjusted to avoid ERROR in CRAN checks for MacOS-arm64.
+
+MAJOR CHANGES
+    o   bootstrapMSmix(...):
+        [::] replaced former arguments `n_clust`, `z_hat`, `rho_mle` and `theta_mle` with `object`
+             to exploit the S3 class "emMSmix".
+        [::] added new argument `parallel` for parallel execution of model fit in the case of
+             partial rankings.
+    o   confintMSmix(...):
+        [::] replaced former arguments `n_items`, `theta_mle`, `weights_mle` and `z_hat` with `object`
+             to exploit the S3 class "emMSmix".
+        [::] indication of the function validity for full rankings only.
+    o   spear_dist_distr(...):
+        [::] new implementation to allow computation also for n_items>170 and return the approximate
+             distribution over a fixed grid of Spearman distance values to limit computational burden.
+
+NEW FUNCTIONS
+    o   data_censoring(...) for converting full rankings into partial rankings.
+
+NEW FEATURES
+    o   Added package `gmp` in Imports.
+
+DOCUMENTATION
+    o   The manual has been globally reviewed and updated with the new implementation details.

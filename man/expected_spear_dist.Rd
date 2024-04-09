@@ -20,13 +20,14 @@ Either the exact or the approximate (log-)expected value of the Spearman distanc
 Compute (either the exact or the approximate) (log-)expectation of the Spearman distance under the Mallow model with Spearman distance.
 }
 \details{
-When \eqn{n\leq 20}, the expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023).
+When \eqn{n\leq 20}, the expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 
 The expected Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, this is equal to \eqn{\frac{n^3-n}{6}}, which is the expectation of the Spearman distance under the uniform (null) model.
 }
 \examples{
 
-## Example 1. Expected Spearman distance under the uniform (null) model, coinciding with (n^3-n)/6.
+## Example 1. Expected Spearman distance under the uniform (null) model,
+## coinciding with (n^3-n)/6.
 n_items <- 10
 expected_spear_dist(theta = 0, n_items = n_items, log = FALSE)
 (n_items^3-n_items)/6
@@ -36,20 +37,20 @@ expected_spear_dist(theta = 0.5, n_items = 10, log = FALSE)
 
 ## Example 3. Log-expected Spearman distance as a function of theta.
 expected_spear_dist_vec <- Vectorize(expected_spear_dist, vectorize.args = "theta")
-curve(suppressMessages(expected_spear_dist_vec(x, n_items = 10)),
+curve(expected_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(3, 5.5),
   xlab = expression(theta), ylab = expression(log(E[theta](D))),
   main = "Log-expected Spearman distance")
 
 ## Example 4. Log-expected Spearman distance for varying number of items
-# and values of the concentration parameter.
+## and values of the concentration parameter.
 expected_spear_dist_vec <- Vectorize(expected_spear_dist, vectorize.args = "theta")
-curve(suppressMessages(expected_spear_dist_vec(x, n_items = 10)),
+curve(expected_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(3, 9),
   xlab = expression(theta), ylab = expression(log(E[theta](D))),
   main = "Log-expected Spearman distance")
-curve(suppressMessages(expected_spear_dist_vec(x, n_items = 20)), add = TRUE, col = 3, lwd = 2)
-curve(suppressMessages(expected_spear_dist_vec(x, n_items = 30)), add = TRUE, col = 4, lwd = 2)
+curve(expected_spear_dist_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
+curve(expected_spear_dist_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
 legend("topright", legend = c(expression(n == 10), expression(n == 20), expression(n == 30)),
   col = 2:4, lwd = 2, bty = "n")
 

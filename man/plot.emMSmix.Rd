@@ -7,7 +7,7 @@
 \method{plot}{emMSmix}(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"emMSmix"} returned by \code{fitMSmix}.}
+\item{x}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
 \item{max_scale_w}{Positive scalar: maximum magnification of the dots in the bump plot, set proportional to the MLEs of the weights. Defaults to 20.}
 
