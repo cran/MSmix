@@ -19,7 +19,7 @@ likMSmix(
 
 \item{weights}{Numeric vector of \eqn{G} positive mixture weights (normalization is not necessary).}
 
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.}
 
 \item{log}{Logical: whether the log-likelihood must be returned. Defaults to \code{TRUE}.}
 }
@@ -74,7 +74,7 @@ likMSmix(rho = fit$mod$rho, theta = fit$mod$theta, weights = fit$mod$weights,
 
 }
 \references{
-Crispino M, Mollica C, Modugno L, Casadio Tarabusi E, and Tardella L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 }

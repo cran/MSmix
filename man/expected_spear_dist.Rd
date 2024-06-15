@@ -43,7 +43,7 @@ curve(expected_spear_dist_vec(x, n_items = 10),
   main = "Log-expected Spearman distance")
 
 ## Example 4. Log-expected Spearman distance for varying number of items
-## and values of the concentration parameter.
+# and values of the concentration parameter.
 expected_spear_dist_vec <- Vectorize(expected_spear_dist, vectorize.args = "theta")
 curve(expected_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(3, 9),

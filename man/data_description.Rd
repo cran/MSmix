@@ -17,7 +17,7 @@ data_description(
 \method{print}{data_descr}(x, ...)
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.}
 
 \item{marg}{Logical: whether the first-order marginals have to be computed. Defaults to \code{TRUE}.}
 
@@ -25,7 +25,7 @@ data_description(
 
 \item{paired_comp}{Logical: whether the pairwise comparison matrix has to be computed. Defaults to \code{TRUE}.}
 
-\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.}
+\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be considered. Missing values are taken as \code{FALSE}.}
 
 \item{item_names}{Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
 
@@ -58,7 +58,8 @@ The Borda ranking, obtained from the ordering of the mean rank vector, correspon
 \examples{
 
 ## Example 1. Sample statistics for the Antifragility dataset.
-descr <- data_description(rankings = ranks_antifragility)
+r_antifrag <- ranks_antifragility[, 1:7]
+descr <- data_description(rankings = r_antifrag)
 descr
 
 ## Example 2. Sample statistics for the Sports dataset.

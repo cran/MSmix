@@ -20,8 +20,7 @@ The present package performs ML estimation (MLE) of the Mallows model with Spear
 from full and partial rankings with arbitrary censoring patterns.
 Thanks to the novel approximation of the model normalizing constant introduced by
 Crispino, Mollica, Astuti and Tardella (2023), as well as the existence of
-a closed-form expression of the MLE of the consensus ranking, \pkg{MSmix} can address inference
-even for a large number of items (currently the upper limit is \eqn{n\leq 170}).
+a closed-form expression of the MLE of the consensus ranking, \pkg{MSmix} can address inference even for a large number of items.
 The package also allows to account for unobserved sample heterogeneity through MLE of
 \emph{finite mixtures of Mallows models with Spearman distance} via EM algorithms, in order to
 perform a model-based clustering of partial rankings into groups with similar preferences.
@@ -80,21 +79,26 @@ under the uniform (null) model.}
 \item{\code{\link{var_spear_dist}}}{Variance of the Spearman distance under the Mallows model with Spearman distance.}
 }
 \strong{S3 class methods} \describe{
-\item{\code{\link{plot.emMSmix}}}{Plot the MLEs of mixtures of Mallows models with Spearman distance.}
-\item{\code{\link{summary.emMSmix}}}{Summary of the MLEs of mixtures of Mallows models with Spearman distance.}
+\item{\code{\link{print.bootMSmix}}}{Print the bootstrap confidence intervals of mixtures of Mallows models with Spearman distance.}
+\item{\code{\link{print.data_descr}}}{Print the descriptive statistics for partial rankings.}
+\item{\code{\link{print.emMSmix}}}{Print the MLEs of mixtures of Mallows models with Spearman distance.}
+\item{\code{\link{print.summary.emMSmix}}}{Print the summary of the MLEs of mixtures of Mallows models with Spearman distance.}
+\item{\code{\link{plot.bootMSmix}}}{Plot the bootstrap confidence intervals of mixtures of Mallows models with Spearman distance.}
 \item{\code{\link{plot.data_descr}}}{Plot the descriptive statistics for partial rankings.}
 \item{\code{\link{plot.dist}}}{Plot the Spearman distance matrix for full rankings.}
+\item{\code{\link{plot.emMSmix}}}{Plot the MLEs of mixtures of Mallows models with Spearman distance.}
+\item{\code{\link{summary.emMSmix}}}{Summary of the MLEs of mixtures of Mallows models with Spearman distance.}
 }
 \strong{Datasets}
 \describe{
-\item{\code{\link{ranks_antifragility}}}{Antifragility features of innovative startups (full rankings).}
+\item{\code{\link{ranks_antifragility}}}{Antifragility features of innovative startups (full rankings with covariates).}
+\item{\code{\link{ranks_horror}}}{Arkham Horror data (full rankings).}
 \item{\code{\link{ranks_beers}}}{Beer preference data (partial missing at random rankings with covariate).}
 \item{\code{\link{ranks_read_genres}}}{Reading preference data (partial top-5 rankings with covariates).}
 \item{\code{\link{ranks_sports}}}{Sport preferences and habits (full rankings with covariates).}
 }
 
-Some quantities frequently recalled in the
-manual are the following:
+Some quantities frequently recalled in the manual are the following:
 \describe{
 \item{\eqn{N}}{Sample size.}
 \item{\eqn{n}}{Number of possible items.}

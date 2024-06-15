@@ -48,7 +48,7 @@ curve(var_spear_dist_vec(x, n_items = 10),
   main = "Log-variance of the Spearman distance")
 
 ## Example 4. Log--variance of the Spearman distance for varying number of items
-## and values of the concentration parameter.
+# and values of the concentration parameter.
 var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
 curve(var_spear_dist_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2, ylim = c(5, 14),

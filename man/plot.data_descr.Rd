@@ -8,6 +8,7 @@
   x,
   cex_text_mean = 1,
   cex_symb_mean = 12,
+  marg_by = "item",
   cex_text_pc = 3,
   cex_range_pc = c(8, 20),
   ...
@@ -20,6 +21,8 @@
 
 \item{cex_symb_mean}{Positive scalar: the magnification to be used for the symbols in the pictogram of the mean rank vector. Defaults to 12.}
 
+\item{marg_by}{Character indicating whether the marginal distributions must be reported by \code{"item"} or by \code{"rank"} in the heatmap. Defaults to \code{"item"}.}
+
 \item{cex_text_pc}{Positive scalar: the magnification to be used for all the labels in the bubble plot of the paired comparison frequencies. Defaults to 3.}
 
 \item{cex_range_pc}{Numeric vector indicating the range of values to be used on each axis in the bubble plot of the paired comparison frequencies. Defaults to \code{c(8,20)}.}
@@ -27,7 +30,7 @@
 \item{...}{Further arguments passed to or from other methods (not used).}
 }
 \value{
-Produce 5 plots to display descriptive summaries of the partial ranking dataset, namely: i) a barplot of the frequency distribution (\%) of the number of ranked items (i.e., the length of the partial sequences), ii) a basic pictogram of the mean rank vector, iii) a heatmap of the first-order marginals, iv) the ecdf of the marginal rank distributions and v) a bubble plot of the pairwise comparison matrix.
+Produce 5 plots to display descriptive summaries of the partial ranking dataset, namely: i) a barplot of the frequency distribution (\%) of the number of items actually ranked in each partial sequence, ii) a basic pictogram of the mean rank vector, iii) a heatmap of the marginal distirbutions (either by item or by rank), iv) the ecdf of the marginal rank distributions and v) a bubble plot of the pairwise comparison matrix.
 }
 \description{
 \code{plot} method for class \code{"data_descr"}.
@@ -35,7 +38,8 @@ Produce 5 plots to display descriptive summaries of the partial ranking dataset,
 \examples{
 
 ## Example 1. Plot sample statistics for the Antifragility dataset.
-desc <- data_description(ranks_antifragility)
+r_antifrag <- ranks_antifragility[, 1:7]
+desc <- data_description(r_antifrag)
 plot(desc)
 
 ## Example 2. Plot sample statistics for the Sports dataset.

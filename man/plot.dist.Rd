@@ -33,22 +33,23 @@ Produce a heatmap of the Spearman distance matrix between all pairs of full rank
 \code{plot} method for class \code{"dist"}. It is useful to preliminary explore the presence of patterns (groups) of similar preferences in the ranking dataset.
 }
 \details{
-It can take a few seconds if the size of the distance matrix is large.
+\code{plot.dist} can visualize a distance matrix of any metric, provided that its class is \code{"dist"}. It can take a few seconds if the size of the distance matrix is large.
 
 The heatmap can be also obtained by setting the arguments \code{rho = NULL} and \code{plot_dist_mat = TRUE} when applying \code{\link{spear_dist}}.
 }
 \examples{
 
 ## Example 1. Plot the Spearman distance matrix of the Antifragility ranking dataset.
-dist_mat <- spear_dist(rankings = ranks_antifragility)
+r_antifrag <- ranks_antifragility[, 1:7]
+dist_mat <- spear_dist(rankings = r_antifrag)
 plot(dist_mat, show_labels = FALSE)
 
 ## Example 2. Plot the Spearman distance matrix of the Sports ranking dataset.
-n <- 8
-dist_mat <- spear_dist(rankings = ranks_sports[, 1:n])
+r_sports <- ranks_sports[, 1:8]
+dist_mat <- spear_dist(rankings = r_sports)
 plot(dist_mat, show_labels = FALSE)
 # Plot the Spearman distance matrix for the subsample of males.
-dist_m <- spear_dist(rankings = ranks_sports[, 1:n], subset = ranks_sports$Gender == "Male")
+dist_m <- spear_dist(rankings = r_sports, subset = (ranks_sports$Gender == "Male"))
 plot(dist_m)
 
 

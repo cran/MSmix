@@ -4,18 +4,12 @@
 \alias{confintMSmix}
 \title{Hessian-based confidence intervals for mixtures of Mallows models with Spearman distance}
 \usage{
-confintMSmix(
-  object,
-  sample_size = (if (length(object$mod$theta) > 1) NULL),
-  conf_level = 0.95
-)
+confintMSmix(object, conf_level = 0.95)
 }
 \arguments{
 \item{object}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
-\item{sample_size}{Number of rankings in the observed sample. Needed only when the estimated mixture has a single (\eqn{G=1}) component.}
-
-\item{conf_level}{Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
+\item{conf_level}{Value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
 }
 \value{
 A list with the following named components:
@@ -40,7 +34,7 @@ rankings <- d_sim$samples
 set.seed(123)
 fit1 <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
 # Compute the hessian-based confidence intervals for the MLEs of the precision.
-confintMSmix(object = fit1, sample_size=nrow(rankings))
+confintMSmix(object = fit1)
 # Fit the true model.
 set.seed(123)
 fit2 <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
@@ -49,7 +43,7 @@ confintMSmix(object = fit2)
 
 }
 \references{
-Crispino M, Mollica C, Modugno L, Casadio Tarabusi E, and Tardella L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Marden JI (1995). Analyzing and modeling rank data. \emph{Monographs on Statistics and Applied Probability} (64). Chapman & Hall, ISSN: 0-412-99521-2. London.
 

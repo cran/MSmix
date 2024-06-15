@@ -14,9 +14,9 @@ spear_dist(
 )
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with full rankings in each row.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.}
 
-\item{rho}{An optional full ranking whose Spearman distance from each row of \code{rankings} must be computed. Defaults to \code{NULL}, meaning that the Spearman distance matrix between all pairs of rows in \code{rankings} must be computed.}
+\item{rho}{An optional full ranking whose Spearman distance from each row in \code{rankings} must be computed. Defaults to \code{NULL}, meaning that the Spearman distance matrix between all pairs of rows in \code{rankings} must be computed.}
 
 \item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.}
 
@@ -41,15 +41,16 @@ When \code{rho = NULL}, \code{spear_dist} recalls the \code{\link{dist}} functio
 spear_dist(rankings = c(4, 8, 6, 9, 2, 11, 3, 5, 1, 12, 7, 10), rho = 1:12)
 
 ## Example 2. Spearman distance between the Antifragility ranking dataset and the Borda ranking.
-borda <- rank(data_description(rankings = ranks_antifragility)$mean_rank)
-spear_dist(rankings = ranks_antifragility, rho = borda)
+r_antifrag <- ranks_antifragility[, 1:7]
+borda <- rank(data_description(rankings = r_antifrag)$mean_rank)
+spear_dist(rankings = r_antifrag, rho = borda)
 
 ## Example 3. Spearman distance matrix of the Sports ranking dataset.
-n <- 8
-dist_mat <- spear_dist(rankings = ranks_sports[, 1:n])
+r_sports <- ranks_sports[, 1:8]
+dist_mat <- spear_dist(rankings = r_sports)
 dist_mat
 # Spearman distance matrix for the subsample of females.
-dist_f <- spear_dist(rankings = ranks_sports[, 1:n], subset = ranks_sports$Gender == "Female")
+dist_f <- spear_dist(rankings = r_sports, subset = (ranks_sports$Gender == "Female"))
 dist_f
 
 }

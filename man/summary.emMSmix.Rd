@@ -25,10 +25,11 @@ A list with the following named components:
 \item{\code{modal_orderings}}{Character matrix with the MLEs of the \eqn{G} component-specific consensus orderings in each row.}
 \item{\code{theta}}{Numeric vector of the MLEs of the \eqn{G} precisions.}
 \item{\code{weights}}{Numeric vector of the MLEs of the \eqn{G} mixture weights.}
-\item{\code{MAP_distr}}{Relative frequency distribution of the component memberships based on the MAP allocation.}
+\item{\code{MAP_distr}}{Percentage distribution of the component memberships based on the MAP allocation. Returned when \code{n_clust > 1}, otherwise \code{NULL}}
 \item{\code{conv_perc}}{Percentage of convergence of the EM algorithm over the multiple starting points.}
 \item{\code{BIC}}{BIC value (based on full or augmented rankings).}
 \item{\code{BIC_part}}{BIC value (based on partial rankings).}
+\item{\code{call}}{The matched call.}
 }
 \description{
 \code{summary} method for class \code{"emMSmix"}.
@@ -38,8 +39,9 @@ A list with the following named components:
 \examples{
 ## Example 1. Fit and summary of a 3-component mixture of Mallow models with Spearman distance
 ## for the Antifragility dataset.
+r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(123)
-mms_fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 3, n_start = 10)
+mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
 summary(mms_fit)
 
 

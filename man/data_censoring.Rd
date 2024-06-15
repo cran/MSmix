@@ -8,17 +8,17 @@ data_censoring(
   rankings,
   type = "topk",
   nranked = NULL,
-  probcens = rep(1, ncol(rankings) - 1)
+  probs = rep(1, ncol(rankings) - 1)
 )
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with full rankings in each row.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.}
 
 \item{type}{Character indicating which censoring process must be used. Options are: \code{"topk"} and \code{"mar"}. Defaults to \code{"topk"}.}
 
-\item{nranked}{Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If not supplied (\code{NULL}), the number of positions are randomly generated according to the probabilities in the \code{probcens} argument. Defaults to \code{NULL}.}
+\item{nranked}{Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If not supplied (\code{NULL}), the number of positions are randomly generated according to the probabilities in the \code{probs} argument. Defaults to \code{NULL}.}
 
-\item{probcens}{Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked} argument is \code{NULL} (see Details). Default is equal probabilities.}
+\item{probs}{Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked} argument is \code{NULL} (see Details). Default is equal probabilities.}
 }
 \value{
 A list of two named objects:
@@ -31,7 +31,7 @@ A list of two named objects:
 Convert full rankings into either top-k or MAR (missing at random) partial rankings.
 }
 \details{
-Both forms of partial rankings can be obtained into two ways: (i) by specifying, in the \code{nranked} argument, the number of positions to be retained in each partial ranking; (ii) by setting \code{nranked = NULL} (default) and specifying, in the \code{probcens} argument, the probabilities of retaining respectively \eqn{1, 2, ..., (n-1)} positions in the partial rankings (recall that a partial sequence with \eqn{(n-1)} observed entries corresponds to a full ranking).
+Both forms of partial rankings can be obtained into two ways: (i) by specifying, in the \code{nranked} argument, the number of positions to be retained in each partial ranking; (ii) by setting \code{nranked = NULL} (default) and specifying, in the \code{probs} argument, the probabilities of retaining respectively \eqn{1, 2, ..., (n-1)} positions in the partial rankings (recall that a partial sequence with \eqn{(n-1)} observed entries corresponds to a full ranking).
 
 In the censoring process of full rankings into MAR partial sequences, the positions to be retained are uniformly generated.
 }
@@ -39,31 +39,32 @@ In the censoring process of full rankings into MAR partial sequences, the positi
 
 ## Example 1. Censoring the Antifragility dataset into partial top rankings
 # Top-3 censoring (assigned number of top positions to be retained)
-data_censoring(ranks_antifragility, type = "topk",
-               nranked = rep(3,nrow(ranks_antifragility)))
+n <- 7
+r_antifrag <- ranks_antifragility[, 1:n]
+data_censoring(r_antifrag, type = "topk", nranked = rep(3,nrow(r_antifrag)))
 # Random top-k censoring with assigned probabilities
 set.seed(12345)
-data_censoring(ranks_antifragility, type = "topk",
-               probcens = 1:(ncol(ranks_antifragility)-1))
+data_censoring(r_antifrag, type = "topk", probs = 1:(n-1))
+
 ## Example 2. Simulate full rankings from a basic Mallows model with Spearman distance
-n_items <- 10
+n <- 10
 N <- 100
 set.seed(12345)
-rankings <- rMSmix(sample_size = N, n_items = n_items)$samples
+rankings <- rMSmix(sample_size = N, n_items = n)$samples
 # MAR censoring with assigned number of positions to be retained
 set.seed(12345)
-nranked <- round(runif(N,0.5,1)*n_items)
+nranked <- round(runif(N,0.5,1)*n)
 set.seed(12345)
 mar_ranks1 <- data_censoring(rankings, type = "mar", nranked = nranked)
 mar_ranks1
 identical(mar_ranks1$nranked, nranked)
 # MAR censoring with assigned probabilities
 set.seed(12345)
-probcens <- runif(n_items-1, 0, 0.5)
+probs <- runif(n-1, 0, 0.5)
 set.seed(12345)
-mar_ranks2 <- data_censoring(rankings, type = "mar", probcens = probcens)
+mar_ranks2 <- data_censoring(rankings, type = "mar", probs = probs)
 mar_ranks2
 prop.table(table(mar_ranks2$nranked))
-round(prop.table(probcens), 2)
+round(prop.table(probs), 2)
 
 }

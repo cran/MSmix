@@ -7,26 +7,26 @@
 \format{
 A data frame gathering \eqn{N=105} partial rankings of the beers in the first \eqn{n=20} columns (rank 1 = most preferred item) and an individual covariate in the last column. Partial rankings have missing at random positions coded as \code{NA}. The variables are detailed below:
 \describe{
-\item{Stella_Artois}{Rank assigned to Stella Artois.}
-\item{Kwak_Brasserie}{Rank assigned to Kwak Brasserie.}
-\item{Kronenbourg_Kronenbourg}{Rank assigned to Kronenbourg (Kronenbourg).}
-\item{Faro_Timmermans}{Rank assigned to Faro Timmermans.}
-\item{Kronenbourg_1664}{Rank assigned to 1664 (Kronenbourg).}
-\item{Chimay_Triple}{Rank assigned to Chimay Triple.}
-\item{Pelforth_Brune}{Rank assigned to Pelforth Brune.}
-\item{Kronenbourg_Carlsberg}{Rank assigned to Carlsberg (Kronenbourg).}
-\item{Kronenbourg_Kanterbraeu}{Rank assigned to Kanterbraeu (Kronenbourg).}
-\item{Hoegaarden_Blanche}{Rank assigned to Hoegaarden Blanche.}
-\item{Grimbergen_Blonde}{Rank assigned to Grimbergen Blonde.}
-\item{Pietra_Brasserie}{Rank assigned to Pietra Brasserie.}
-\item{Affligem_Brasserie}{Rank assigned to Affligem Brasserie.}
-\item{La_Goudale}{Rank assigned to La Goudale.}
-\item{Leffe_Blonde}{Rank assigned to Leffe Blonde.}
+\item{Stella}{Rank assigned to Stella Artois.}
+\item{Kwak}{Rank assigned to Kwak Brasserie.}
+\item{KronKron}{Rank assigned to Kronenbourg (Kronenbourg).}
+\item{Faro}{Rank assigned to Faro Timmermans.}
+\item{Kron1664}{Rank assigned to 1664 (Kronenbourg).}
+\item{Chimay}{Rank assigned to Chimay Triple.}
+\item{Pelforth}{Rank assigned to Pelforth Brune.}
+\item{KronCarls}{Rank assigned to Carlsberg (Kronenbourg).}
+\item{KronKanter}{Rank assigned to Kanterbraeu (Kronenbourg).}
+\item{Hoegaarden}{Rank assigned to Hoegaarden Blanche.}
+\item{Grimbergen}{Rank assigned to Grimbergen Blonde.}
+\item{Pietra}{Rank assigned to Pietra Brasserie.}
+\item{Affligem}{Rank assigned to Affligem Brasserie.}
+\item{Goudale}{Rank assigned to La Goudale.}
+\item{Leffe}{Rank assigned to Leffe Blonde.}
 \item{Heineken}{Rank assigned to Heineken.}
-\item{Duvel_Brasserie}{Rank assigned to Duvel Brasserie.}
-\item{La_Choulette}{Rank assigned to La Choulette.}
+\item{Duvel}{Rank assigned to Duvel Brasserie.}
+\item{Choulette}{Rank assigned to La Choulette.}
 \item{Orval}{Rank assigned to Orval.}
-\item{Karmeliet_Triple}{Rank assigned to Karmeliet Triple.}
+\item{Karmeliet}{Rank assigned to Karmeliet Triple.}
 \item{Residence}{Residence.}
 }
 }

@@ -16,7 +16,7 @@ aicMSmix(rho, theta, weights, rankings)
 
 \item{weights}{Numeric vector of \eqn{G} positive mixture weights (normalization is not necessary).}
 
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.}
 }
 \value{
 The BIC or AIC value.
@@ -51,10 +51,35 @@ aicMSmix(rho = fit$mod$rho, theta = fit$mod$theta, weights = fit$mod$weights,
        rankings = rank_sim$samples)
 
 
+## Example 2. Simulate rankings from a basic Mallow model with Spearman distance.
+set.seed(54321)
+rank_sim <- rMSmix(sample_size = 50, n_items = 8, n_clust = 1)
+str(rank_sim)
+# Let us censor the observations to be top-5 rankings.
+rank_sim$samples[rank_sim$samples > 5] <- NA
+rankings <- rank_sim$samples
+# Fit the true model with the two EM algorithms.
+set.seed(54321)
+fit_em <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
+set.seed(54321)
+fit_mcem <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10, mc_em = TRUE)
+# Compare the BIC at the true parameter values and at the MLEs.
+bicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
+       rankings = rank_sim$samples)
+bicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
+       rankings = rank_sim$samples)
+bicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
+       rankings = rank_sim$samples)
+aicMSmix(rho = rank_sim$rho, theta = rank_sim$theta, weights = rank_sim$weights,
+       rankings = rank_sim$samples)
+aicMSmix(rho = fit_em$mod$rho, theta = fit_em$mod$theta, weights = fit_em$mod$weights,
+       rankings = rank_sim$samples)
+aicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$mod$weights,
+       rankings = rank_sim$samples)
 
 }
 \references{
-Crispino M, Mollica C, Modugno L, Casadio Tarabusi E, and Tardella L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 

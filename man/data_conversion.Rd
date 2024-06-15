@@ -4,10 +4,12 @@
 \alias{data_conversion}
 \title{Switch data format from rankings to orderings and vice versa}
 \usage{
-data_conversion(data)
+data_conversion(data, subset = NULL)
 }
 \arguments{
 \item{data}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial sequences whose format has to be converted in each row. Missing entries must be coded as \code{NA}.}
+
+\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be considered. Missing values are taken as \code{FALSE}.}
 }
 \value{
 Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix of partial sequences with the inverse format.

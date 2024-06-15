@@ -12,12 +12,14 @@ fitMSmix(
   n_iter = 200,
   mc_em = FALSE,
   eps = 10^(-6),
-  plot_log_lik = FALSE,
   init = list(list(rho = NULL, theta = NULL, weights = NULL))[rep(1, n_start)],
+  plot_log_lik = FALSE,
+  comp_log_lik_part = FALSE,
   plot_log_lik_part = FALSE,
   parallel = FALSE,
   theta_max = 3,
-  tune_theta = 1,
+  theta_tol = 1e-05,
+  theta_tune = 1,
   subset = NULL,
   item_names = NULL
 )
@@ -25,7 +27,7 @@ fitMSmix(
 \method{print}{emMSmix}(x, ...)
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.}
 
 \item{n_clust}{Number of mixture components. Defaults to 1.}
 
@@ -37,17 +39,21 @@ fitMSmix(
 
 \item{eps}{Positive tolerance value for the convergence of the EM algorithm. Defaults to \eqn{10^{-6}}.}
 
-\item{plot_log_lik}{Logical: whether the iterative log-likelihood values (based on full or augmented rankings) must be plotted. Defaults to \code{FALSE}.}
-
 \item{init}{List of \code{n_start} lists with the starting values of the parameters to initialize the EM algorithm. Each list must contain three named objects, namely: 1) \code{rho}: integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row; 2) \code{theta}: numeric vector of \eqn{G} non-negative component-specific precision parameters; 3) \code{weights}: numeric vector of \eqn{G} positive mixture weights. Defaults to \code{NULL}, meaning that the starting points are automatically generated from the uniform distribution.}
 
-\item{plot_log_lik_part}{Logical: whether the iterative observed-data log-likelihood values (based on partial rankings) must be plotted. Ignored when \code{rankings} does not contain any partial sequence or \code{\link{data_augmentation}} cannot be applied. Defaults to \code{FALSE}.}
+\item{plot_log_lik}{Logical: whether the iterative log-likelihood values (based on full or augmented rankings) must be plotted. Defaults to \code{FALSE}.}
+
+\item{comp_log_lik_part}{Logical: whether the maximized observed-data log-likelihood value (based on partial rankings) must be returned. Ignored when \code{rankings} does not contain any partial sequence or \code{\link{data_augmentation}} cannot be applied. See Details. Defaults to \code{FALSE}.}
+
+\item{plot_log_lik_part}{Logical: whether the iterative observed-data log-likelihood values (based on partial rankings) must be plotted. Ignored when \code{rankings} does not contain any partial sequence. In the presence of partial rankings, this argument is ignored when \code{comp_log_lik_part = FALSE} or \code{\link{data_augmentation}} cannot be applied. Defaults to \code{FALSE}.}
 
 \item{parallel}{Logical: whether parallelization over multiple initializations must be used. Defaults to \code{FALSE}.}
 
 \item{theta_max}{Positive upper bound for the precision parameters. Defaults to 3.}
 
-\item{tune_theta}{Positive tuning constant affecting the precision parameters in the Monte Carlo step. Ignored when \code{rankings} does not contain any partial sequence or \code{mc_em = FALSE}. Defaults to 1.}
+\item{theta_tol}{Positive convergence tolerance for the Mstep on theta. Defaults to \eqn{10^{-5}}.}
+
+\item{theta_tune}{Positive tuning constant affecting the precision parameters in the Monte Carlo step. Ignored when \code{rankings} does not contain any partial sequence or \code{mc_em = FALSE}. Defaults to 1.}
 
 \item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.}
 
@@ -65,6 +71,9 @@ An object of class \code{"emMSmix"}, namely a list with the following named comp
 \item{\code{partial_data}}{Logical: whether the dataset includes some partially-ranked sequences.}
 \item{\code{convergence}}{Binary convergence indicators of the EM algorithm for each initialization: 1 = convergence has been achieved, 0 = otherwise.}
 \item{\code{record}}{Best log-likelihood values sequentially achieved over the \code{n_start} initializations.}
+\item{\code{em_settings}}{List of settings used to fit the model.}
+\item{\code{call}}{The matched call.}
+
 }
 
 The \code{mod} sublist contains the following named objects:
@@ -75,10 +84,12 @@ The \code{mod} sublist contains the following named objects:
 \item{\code{z_hat}}{Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities. Returned when \code{n_clust > 1}, otherwise \code{NULL}.}
 \item{\code{map_classification}}{Integer vector of \eqn{N} mixture component memberships based on the MAP allocation from the \code{z_hat} matrix. Returned when \code{n_clust > 1}, otherwise \code{NULL}.}
 \item{\code{log_lik}}{Numeric vector of the log-likelihood values (based on full or augmented rankings) at each iteration.}
-\item{\code{max_log_lik_part}}{Observed-data log-likelihood value (based on partial rankings) of the fitted model. Returned when \code{rankings} contains some partial sequences that can be completed with \code{data_augmentation}, otherwise \code{NULL}. See Details.}
-\item{\code{bic}}{BIC value of the fitted model.}
-\item{\code{bic_part}}{BIC value of the fitted model based on \code{max_log_lik_part}. Returned when \code{rankings} contains some partial sequences that can be completed with \code{\link{data_augmentation}}, otherwise \code{NULL}. See Details.}
-\item{\code{conv}}{Binary convergence indicator: 1 = convergence has been achieved, 0 = otherwise.}
+\item{\code{best_log_lik}}{Maximized log-likelihood value (based on full or augmented rankings) of the fitted model.}
+\item{\code{bic}}{BIC value of the fitted model based on \code{best_log_lik}.}
+\item{\code{log_lik_part}}{Numeric vector of the observed-data log-likelihood values (based on partial rankings) at each iteration. Returned when \code{rankings} contains some partial sequences that can be completed with \code{data_augmentation} and \code{plot_log_lik_part = TRUE}, otherwise \code{NULL}. See Details.}
+\item{\code{best_log_lik_part}}{Maximized observed-data log-likelihood value (based on partial rankings) of the fitted model. Returned when \code{rankings} contains some partial sequences that can be completed with \code{data_augmentation}, otherwise \code{NULL}. See Details.}
+\item{\code{bic_part}}{BIC value of the fitted model based on \code{best_log_lik_part}. Returned when \code{rankings} contains some partial sequences that can be completed with \code{\link{data_augmentation}}, otherwise \code{NULL}. See Details.}
+\item{\code{conv}}{Binary convergence indicator of the best fitted model: 1 = convergence has been achieved, 0 = otherwise.}
 \item{\code{augmented_rankings}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with rankings completed through the Monte Carlo step in each row. Returned when \code{rankings} contains some partial sequences and \code{mc_em = TRUE}, otherwise \code{NULL}.}
 }
 }
@@ -96,15 +107,21 @@ When \code{mc_em = FALSE}, the scheme introduced by Crispino et al. (2023) is pe
 rankings are augmented with all compatible full rankings. This type of data augmentation is
 supported up to 10 missing positions in the partial rankings.
 
-When \code{mc_em = TRUE}. the - computationally more efficient - Monte Carlo EM algorithm
+When \code{mc_em = TRUE}, the - computationally more efficient - Monte Carlo EM algorithm
 introduced by Crispino et al. (2024+) is implemented. In the case of a large number
 of censored positions and sample sizes, the \code{mc_em = TRUE} must be preferred.
+
+Regardless of the fitting method adopted for inference on partial rankings, note that
+setting the argument \code{comp_log_lik_part = TRUE} for the computation of the
+observed-data log-likelihood values (based on partial rankings)
+can slow down the procedure in the case of a large number of censored positions and sample sizes.
 }
 \examples{
 ## Example 1. Fit the 3-component mixture of Mallow models with Spearman distance
 ## to the Antifragility dataset.
+r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(123)
-mms_fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 3, n_start = 10)
+mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
 mms_fit$mod$rho; mms_fit$mod$theta; mms_fit$mod$weights
 
 ## Example 2. Fit the Mallow model with Spearman distance
@@ -122,7 +139,7 @@ mms_fit$mod$rho; mms_fit$mod$theta
 
 }
 \references{
-Crispino M, Mollica C, Modugno L, Casadio Tarabusi E, and Tardella L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 

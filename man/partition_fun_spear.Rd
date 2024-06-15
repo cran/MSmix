@@ -42,7 +42,8 @@ curve(partition_fun_spear_vec(x, n_items = 10), from = 0, to = 0.1, lwd = 2,
   ylim = c(7, log(factorial(10))))
 
 ## Example 4. Log-partition function of the Mallow model with Spearman distance
-## for varying number of items and values of the concentration parameter.
+## for varying number of items
+# and values of the concentration parameter.
 partition_fun_spear_vec <- Vectorize(partition_fun_spear, vectorize.args = "theta")
 curve(partition_fun_spear_vec(x, n_items = 10),
   from = 0, to = 0.1, lwd = 2, col = 2,

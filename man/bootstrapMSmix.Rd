@@ -7,14 +7,11 @@
 \usage{
 bootstrapMSmix(
   object,
-  rankings,
   n_boot = 50,
+  type = (if (object$em_settings$n_clust == 1) "non-parametric" else "soft"),
   conf_level = 0.95,
-  type = (if (n_clust == 1) "non-parametric" else "soft"),
-  n_start = 10,
-  mc_em = FALSE,
-  item_names = NULL,
   all = FALSE,
+  n_start = 10,
   parallel = FALSE
 )
 
@@ -23,21 +20,15 @@ bootstrapMSmix(
 \arguments{
 \item{object}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with the rankings on which the mixture of Mallows models has been fitted.}
-
 \item{n_boot}{Number of desired bootstrap samples. Defaults to 50.}
 
-\item{conf_level}{Value in the interval (0,1) indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
+\item{type}{Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} or \code{"parametric"} for the \eqn{G=1} case, and \code{"soft"} or \code{"separated"} for the \eqn{G>1} case. Defaults to \code{"non-parametric"} when \code{n_clust = 1} and to \code{"soft"} when \code{n_clust > 1}. See Details.}
 
-\item{type}{Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} or \code{"parametric"}, for the \eqn{G=1} case, and \code{"soft"} or \code{"separated"}, for the \eqn{G>1} case. Defaults to \code{"soft"} when \code{n_clust > 1} and to \code{"non-parametric"} when \code{n_clust = 1}. See Details.}
-
-\item{n_start}{Number of starting points for the MLE on each bootstrap sample. Defaults to 10.}
-
-\item{mc_em}{Logical: whether the Monte Carlo EM algorithm must be used for MLE on partial rankings. Ignored when \code{rankings} does not contain any partial sequence. Defaults to \code{FALSE}.}
-
-\item{item_names}{Character vector for the names of the items. Defaults to NULL, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
+\item{conf_level}{Value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.}
 
 \item{all}{Logical: whether the bootstrap samples of the MLEs for all the parameters must be returned. Defaults to \code{FALSE}.}
+
+\item{n_start}{Number of starting points for the MLE on each bootstrap sample. Defaults to 10.}
 
 \item{parallel}{Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings. Defaults to \code{FALSE}.}
 
@@ -50,7 +41,7 @@ An object of class \code{"bootMSmix"}, namely a list with the following named co
 \describe{
 \item{\code{itemwise_ci_rho}}{The bootstrap itemwise confidence intervals for the component-specific consensus rankings.}
 \item{\code{ci_boot_theta}}{The bootstrap confidence intervals for the component-specific precisions.}
-\item{\code{ci_boot_weights}}{The bootstrap confidence intervals for the mixture weights. Returned when \code{n_clust > 1} and \code{type == "soft"}, otherwise \code{NULL}.}
+\item{\code{ci_boot_weights}}{The bootstrap confidence intervals for the mixture weights. Returned when \code{n_clust > 1} and \code{type = "soft"}, otherwise \code{NULL}.}
 \item{\code{boot}}{List containing all the \code{n_boot} bootstrap parameters. Returned when \code{all = TRUE}, otherwise \code{NULL}.}
 }
 
@@ -84,40 +75,42 @@ consensus rankings and precisions.
 
 ## Example 1. Compute the bootstrap 95\% confidence intervals for the Antifragility dataset.
 # Let us assume no clusters.
+r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(12345)
-fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 1, n_start = 1)
+fit <- fitMSmix(rankings = r_antifrag, n_clust = 1, n_start = 1)
 # Apply non-parametric bootstrap procedure.
 set.seed(12345)
-boot_np <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200)
-boot_np$itemwise_ci_rho; boot_np$ci_boot_theta;
+boot_np <- bootstrapMSmix(object = fit, n_boot = 200)
+print(boot_np)
 # Apply parametric bootstrap procedure and set all = TRUE
 # to return the bootstrap MLEs of the consensus ranking.
 set.seed(12345)
-boot_p <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 200,
+boot_p <- bootstrapMSmix(object = fit, n_boot = 200,
                        type = "parametric", all = TRUE)
-boot_p$itemwise_ci_rho; boot_p$ci_boot_theta;
+print(boot_p)
 plot(boot_p)
 
 ## Example 2. Compute the bootstrap 95\% confidence intervals for the Antifragility dataset.
 # Let us assume two clusters and apply soft bootstrap.
+r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(12345)
-fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 2, n_start = 20)
+fit <- fitMSmix(rankings = r_antifrag, n_clust = 2, n_start = 20)
 set.seed(12345)
-boot_soft <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+boot_soft <- bootstrapMSmix(object = fit, n_boot = 500,
                       n_start = 20, all = TRUE)
 plot(boot_soft)
 # Apply separated bootstrap and compare results.
 set.seed(12345)
-boot_sep <- bootstrapMSmix(object = fit, rankings = ranks_antifragility, n_boot = 500,
+boot_sep <- bootstrapMSmix(object = fit, n_boot = 500,
                      n_start = 20, type = "separated", all = TRUE)
 plot(boot_sep)
-boot_soft$itemwise_ci_rho; boot_soft$ci_boot_theta; boot_soft$ci_boot_weights;
-boot_sep$itemwise_ci_rho; boot_sep$ci_boot_theta; boot_soft$ci_boot_weights;
+print(boot_soft)
+print(boot_sep)
 
 
 }
 \references{
-Crispino M, Mollica C, Modugno L, Casadio Tarabusi E, and Tardella L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Taushanov Z and Berchtold A (2019). Bootstrap validation of the estimated parameters in mixture models used for clustering. \emph{Journal de la société française de statistique}, \bold{160}(1).
 

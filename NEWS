@@ -1,6 +1,67 @@
 NEWS/ChangeLog for MSmix
 --------------------------
 
+1.0.2   2024-06-15
+
+BUG FIXES
+    o   subsetting implementation with `subset` argument in the case of numerical row indeces.
+    o   bootstrapMSmix(...):
+        [::] computation of the itemwise CIs for the components of the estimated consensus rankings in the case of tied relative frequencies.
+
+MINOR CHANGES
+    o   bootstrapMSmix(...):
+        [::] added new component `conf_level` in the output list.
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+    o   data_augmentation(...):
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+        [::] removed argument `subset`.
+    o   data_censoring(...):
+        [::] argument `probcens` renamed as `probs`.
+    o   data_completion(...):
+        [::] argument `reference_rho` renamed as `ref_rho`.
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+        [::] added error message for the presence of some NA entries in the `ref_rho` argument.
+    o   data_conversion(...):
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+    o   data_description(...):
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+    o   fitMSmix(...):
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+    o   likMSmix(...):
+        [::] added error message for the presence of rows in the `rankings` argument having all NA entries.
+    o   plot.data_descr(...):
+        [::] added new argument `marg_by` to report marginal distribution in the heatmap either by item or by rank.
+        [::] changed scale and colors in the legend of the heatmap.
+        [::] unified the colors of the items in the pictogram, ecdf and bubble plots.
+    o   spear_dist(...):
+        [::] added error message for the presence of some NA entries in the `rankings` or `rho` arguments.
+    o   summary.emMSmix(...):
+        [::] changed element `MAP_distr` in the output list from relative to percentage distribution in the case of multiple mixture components, otherwise set as NULL.
+    o   character variables converted into factors in the `ranks_sports` dataset.
+
+NEW FUNCTIONS
+    o   added the print method print.bootMSmix(...)  for the S3 class `bootMSmix`.
+
+NEW FEATURES
+    o   added new argument `subset` in bootstrapMSmix(...) and data_conversion(...).
+    o   fitMSmix(...):
+        [::] argument `tune_theta` renamed as `theta_tune`.
+        [::] added new argument `theta_tol`.
+        [::] added new element `best_log_lik` in the `mod` output list.
+        [::] element `max_log_lik_part` renamed as `best_log_lik_part` in the `mod` output list.
+    o   added new dataset `ranks_horror`.
+    o   added covariates in the `ranks_antifragility` dataset.
+    o   added packages `magrittr` and `scales` in Imports.
+    o   removed package `stringr` from Imports.
+    o   moved package `dplyr` from Imports to Depends.
+
+DOCUMENTATION
+    o   added package vignette
+    o   the manual has been globally reviewed and updated with the new implementation details.
+
+###################################################################################################################
+
+
 1.0.1   2024-04-08
 
 BUG FIXES
@@ -25,7 +86,7 @@ NEW FUNCTIONS
     o   data_censoring(...) for converting full rankings into partial rankings.
 
 NEW FEATURES
-    o   Added package `gmp` in Imports.
+    o   added package `gmp` in Imports.
 
 DOCUMENTATION
-    o   The manual has been globally reviewed and updated with the new implementation details.
+    o   the manual has been globally reviewed and updated with the new implementation details.

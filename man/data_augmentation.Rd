@@ -4,12 +4,10 @@
 \alias{data_augmentation}
 \title{Data augmentation of partial rankings}
 \usage{
-data_augmentation(rankings, subset = NULL, fill_single_na = TRUE)
+data_augmentation(rankings, fill_single_na = TRUE)
 }
 \arguments{
-\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row. Missing positions must be coded as \code{NA}.}
-
-\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.}
+\item{rankings}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.}
 
 \item{fill_single_na}{Logical: whether single missing positions in the row of \code{rankings} must be filled in prior to data augmentation. Defaults to \code{TRUE}.}
 }
@@ -20,7 +18,7 @@ A list of \eqn{N} elements corresponding to the matrices of full rankings compat
 For a given partial ranking matrix, generate all possible full rankings which are compatible with each partially ranked sequence. Partial rankings with at most 10 missing positions and arbitrary patterns of censoring are supported.
 }
 \details{
-The data augmentation of a full ranking returns the complete ranking itself arranged in a row vector. The function can be applied on partial observations expressed in ordering format as well. A message informs the user when the augmentation may be heavy, before proceeding.
+The data augmentation of a full ranking returns the complete ranking itself arranged in a row vector. The function can be applied on partial observations expressed in ordering format as well. A message informs the user when data augmentation may be heavy.
 }
 \examples{
 

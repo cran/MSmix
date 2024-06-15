@@ -26,8 +26,9 @@ Produce a bump plot to compare the component-specific consensus rankings of the 
 \examples{
 ## Example 1. Fit a 3-component mixture of Mallow models with Spearman distance
 ## to the Antifragility dataset.
+r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(123)
-mms_fit <- fitMSmix(rankings = ranks_antifragility, n_clust = 3, n_start = 10)
+mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
 plot(mms_fit)
 
 
