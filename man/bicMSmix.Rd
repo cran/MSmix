@@ -22,7 +22,7 @@ aicMSmix(rho, theta, weights, rankings)
 The BIC or AIC value.
 }
 \description{
-\code{bicMSmix} and \code{aicMSmix} compute, respectively, the Bayesian Information Criterion (BIC) and the Akaike Information Criterion (AIC) for a mixture of Mallow models with Spearman distance fitted on partial rankings.
+\code{bicMSmix} and \code{aicMSmix} compute, respectively, the Bayesian Information Criterion (BIC) and the Akaike Information Criterion (AIC) for a mixture of Mallows models with Spearman distance fitted on partial rankings.
 }
 \details{
 The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
@@ -31,7 +31,7 @@ When \eqn{n\leq 20}, the (log-)likelihood is exactly computed, otherwise it is a
 }
 \examples{
 
-## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+## Example 1. Simulate rankings from a 2-component mixture of Mallows models
 ## with Spearman distance.
 set.seed(12345)
 rank_sim <- rMSmix(sample_size = 50, n_items = 12, n_clust = 2)
@@ -51,7 +51,7 @@ aicMSmix(rho = fit$mod$rho, theta = fit$mod$theta, weights = fit$mod$weights,
        rankings = rank_sim$samples)
 
 
-## Example 2. Simulate rankings from a basic Mallow model with Spearman distance.
+## Example 2. Simulate rankings from a basic Mallows model with Spearman distance.
 set.seed(54321)
 rank_sim <- rMSmix(sample_size = 50, n_items = 8, n_clust = 1)
 str(rank_sim)
@@ -79,7 +79,7 @@ aicMSmix(rho = fit_mcem$mod$rho, theta = fit_mcem$mod$theta, weights = fit_mcem$
 
 }
 \references{
-Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 

@@ -42,15 +42,15 @@ A list of the following named components:
 \item{\code{classification}}{Integer vector of the \code{sample_size} component membership labels.}
 }
 \description{
-Draw random samples of full rankings from a mixture of Mallow models with Spearman distance.
+Draw random samples of full rankings from a mixture of Mallows models with Spearman distance.
 }
 \details{
 When \code{n_items > 10} or \code{mh = TRUE}, the random samples are obtained by using the Metropolis-Hastings algorithm, described in Vitelli et al. (2018) and implemented in the \code{sample_mallows} function of the package \code{BayesMallows} package.
 
-When \code{theta = NULL} is not provided by the user, the concentration parameters are randomly generated from a uniform distribution on the interval \eqn{(1/n^{2},3/n^{1.5})} of some typical values for the precisions.
+When \code{theta = NULL}, the concentration parameters are randomly generated from a uniform distribution on the interval \eqn{(1/n^{2},3/n^{1.5})} containing typical values for the precisions.
 
-When \code{uniform = FALSE}, the mixing weights are sampled from a symmetric Dirichlet distribution with shape parameters all equal to \eqn{2G}, to favor populated and balanced clusters;
-the consensus parameters are sampled to favor well-separated clusters, i. e.,  at least at Spearman distance \eqn{\frac{2}{G}\binom{n+1}{3}} from each other.
+When \code{uniform = FALSE}, the mixing weights are sampled from a symmetric Dirichlet distribution with shape parameters all equal to \eqn{2G}, to favor populated and balanced clusters, and
+the consensus parameters are sampled to favor well-separated clusters, i. e.,  at least at Spearman distance equal to \eqn{\frac{2}{G}\binom{n+1}{3}} from each other.
 }
 \examples{
 

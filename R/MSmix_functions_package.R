@@ -23,12 +23,24 @@ utils::globalVariables(c(".","amv"))
 #' @importFrom reshape melt
 #' @importFrom scales hue_pal
 #' @importFrom spsUtil quiet
-#' @importFrom stats addmargins density dist heatmap na.omit qnorm runif uniroot
+#' @importFrom nnet multinom
+#' @importFrom stats addmargins coef density dist heatmap na.omit qnorm rnorm runif uniroot
 #' @importFrom utils getFromNamespace menu sessionInfo
 NULL
 
-# assign_cluster ----
-assign_cluster <- function(rankings_orig, z_hat) {
+
+# assign_cluster_full ----
+#/' Utility for the exported fitMSmix
+#/'
+#/' Compute the matrix of the estimated posterior component membership probabilities for the \eqn{N} individual FULL rankings from that returned by the EM algorithm associated to the \eqn{L} distinct FULL rankings.
+#/'
+#/' @keywords internal
+#/' @param rankings_orig Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.
+#/' @param z_hat Numeric \eqn{L}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities for the \eqn{L\leq N} distinct full rankings in \code{rankings_orig}.
+#/'
+#/' @return Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities for the \eqn{N} individual full rankings in \code{rankings_orig}.
+#/'
+assign_cluster_full <- function(rankings_orig, z_hat) {
 
   l <- do.call(paste, data.frame(rankings_orig))
   ml <- match(l, l)
@@ -52,6 +64,19 @@ assign_cluster <- function(rankings_orig, z_hat) {
 
 
 # assign_cluster_partial ----
+#/' Utility for the exported fitMSmix
+#/'
+#/' Compute the matrix of the estimated posterior component membership probabilities for the \eqn{N} individual PARTIAL rankings from that returned by the EM algorithm associated to the \eqn{M} distinct FULL rankings obtained with \code{data_augmentation}.
+#/'
+#/' @keywords internal
+#/' @param rankings_part_orig Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row.
+#/' @param aug_list A list with elements corresponding to the matrices of full rankings compatible with the partial sequences in \code{rankings_part}.
+#/' @param aug_mat Integer matrix of full rankings with rows given by the stacked matrices in \code{aug_list}.
+#/' @param z_hat Numeric \eqn{M}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities for the \eqn{M} distinct full rankings associated to \code{rankings_part_orig}.
+#/' @param freq_compl Integer vector with the estimated frequencies of each distinct full ranking.
+#/'
+#/' @return Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities for the \eqn{N} individual partial rankings in \code{rankings_part_orig}.
+#/'
 assign_cluster_partial <- function(rankings_part_orig,
                                    aug_list,
                                    aug_mat,
@@ -148,7 +173,7 @@ assign_cluster_partial <- function(rankings_part_orig,
 #' ## Example 1. Data augmentation of a single partial top-9 ranking.
 #' data_augmentation(c(3, 7, 5, 1, NA, 4, NA, 8, 2, 6, NA, 9))
 #'
-#' ## Example 2. Data augmentation of partial rankings with different censoring patterns.
+#' ## Example 2. Data augmentation of partial ranking matrix with different censoring patterns.
 #' rank_data <- rbind(c(NA, 4, NA, 1, NA),
 #'                    c(NA, NA, NA, NA, 1),
 #'                    c(2, NA, 1, NA, 3),
@@ -210,9 +235,6 @@ data_augmentation <- function(rankings,
   return(out)
 } # list of N elements which are all matrices with n columns and an arbitrary number of rows
 
-
-
-
 # data_completion ----
 #' Completion of partial rankings with reference full rankings
 #'
@@ -229,7 +251,7 @@ data_augmentation <- function(rankings,
 #' @return Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with the completed rankings in each row.
 #'
 #' @references
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 #'
 #' @examples
 #'
@@ -254,7 +276,7 @@ data_completion <- function(rankings,ref_rho) {
 
 
     if (any(is.na(ref_rho))) {
-    stop("The argument 'ref_rho' must contain full rankings in each row.\n")
+      stop("The argument 'ref_rho' must contain full rankings in each row.\n")
     }
 
     if (!(identical(dim(rankings),dim(ref_rho)))) {
@@ -285,6 +307,16 @@ data_completion <- function(rankings,ref_rho) {
 
 
 # ranking_completion ----
+#/' Utility for the exported data_completion
+#/'
+#/' Deterministic completion of a partial ranking with the relative positions of the unranked items provided by a reference full ranking.
+#/'
+#/' @keywords internal
+#/' @param part_ranking Integer vector of length \eqn{n} representing the partial ranking to be completed.
+#/' @param rho Integer vector of length \eqn{n} representing the reference full ranking.
+#/'
+#/' @return A full ranking of \eqn{n} items.
+#/'
 ranking_completion <- function(part_ranking,rho) {
   is_item_unranked <- is.na(part_ranking)
   sum_unranked <- sum(is_item_unranked)
@@ -304,6 +336,20 @@ ranking_completion <- function(part_ranking,rho) {
 
 
 # ranking_completion_hide ----
+#/' Utility for the internal em_db_mix and the exported fitMSmix
+#/'
+#/' Deterministic completion of a partial ranking with the relative positions of the unranked items provided by a reference full ranking.
+#/'
+#/' Although this internal routine parallels the utility \code{ranking_completion}, it allows to speed up the iterative completion of partial rankings in the MCEM algorithm.
+#/'
+#/' @keywords internal
+#/' @param part_ranking Integer vector of length \eqn{n} representing the partial ranking to be completed.
+#/' @param rho Integer vector of length \eqn{n} representing the reference full ranking.
+#/' @param items_unranked Integer vector with the labels of the unranked items in the \code{part_ranking}.
+#/' @param n_items Number of items.
+#/'
+#/' @return A full ranking of \eqn{n} items.
+#/'
 ranking_completion_hide <- function(part_ranking, rho, items_unranked, n_items) {
   part_ranking[items_unranked] <- setdiff(1:n_items, part_ranking)[rank(rho[items_unranked])]
   return(part_ranking) # vector of length n which is, actually, the partial ranking completed.
@@ -314,10 +360,10 @@ ranking_completion_hide <- function(part_ranking, rho, items_unranked, n_items) 
 #'
 #' @description Convert the format of the input dataset from rankings to orderings and vice versa. Differently from existing analogous functions supplied by other \code{R} packages, \code{data_conversion} supports also partial rankings/orderings with arbitrary patterns of censoring.
 #'
-#' @param data Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial sequences whose format has to be converted in each row. Missing entries must be coded as \code{NA}.
-#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be considered. Missing values are taken as \code{FALSE}.
+#' @param data Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial sequences (either rankings or orderings) in each row, whose format has to be converted. Missing entries must be coded as \code{NA}.
+#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{data}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
 #'
-#' @return Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix of partial sequences with the inverse format.
+#' @return Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix of partial sequences with inverse format with respect to the input \code{data}.
 #'
 #' @examples
 #'
@@ -329,6 +375,7 @@ ranking_completion_hide <- function(part_ranking, rho, items_unranked, n_items) 
 #'                       c(NA, NA, NA, NA, 2), c(NA, 5, 2, 1, 3), c(3, 5, 1, 2, 4)))
 #'
 #' @export
+#'
 data_conversion <- function(data, subset = NULL) {
 
   if (!is.matrix(data)) {
@@ -362,6 +409,15 @@ data_conversion <- function(data, subset = NULL) {
 
 
 # fill_single_entries_new ----
+#/' Utility for the preliminary check of the partial sequences in several exported functions
+#/'
+#/' Fill in the single missing entries in partial orderings/rankings. Recall that a partial sequence with \eqn{(n-1)} observed entries corresponds to a fully observed sequence.
+#/'
+#/' @keywords internal
+#/' @param data Integer matrix with partial sequences (either rankings or orderings) in each row.
+#/'
+#/' @return Integer data matrix of partial sequences in the same format of the input \code{data} with possible single missing entries filled.
+#/'
 fill_single_entries_new <- function(data) {
 
   if (is.vector(data)) {
@@ -384,6 +440,18 @@ fill_single_entries_new <- function(data) {
 }
 
 # myorder_new ----
+#/' Utility for the exported data_conversion
+#/'
+#/' Switch the data format of a single partial sequence from ranking to ordering and viceversa.
+#/'
+#/' It works also with complete sequences.
+#/'
+#/' @keywords internal
+#/' @param x Integer vector of length \eqn{n} representing a single partial sequence (either ranking or ordering). Missing positions must be coded as \code{NA}.
+#/' @param n_items Number of items.
+#/'
+#/' @return The input partial sequence with inverse data format.
+#/'
 myorder_new <- function(x, n_items) {
   if (any(is.na(x))) {
     temp <- order(x, na.last = NA)
@@ -406,14 +474,14 @@ myorder_new <- function(x, n_items) {
 #'
 #' The implementation of \code{data_description} is similar to that of \code{rank_summaries} from the \code{PLMIX} package. Differently from the latter, \code{data_description} works with any kind of partial rankings (not only top rankings) and allows to summarize subsamples thanks to the additional \code{subset} argument.
 #'
-#' The Borda ranking, obtained from the ordering of the mean rank vector, corresponds to the MLE of the consensus ranking of the Mallow model with Spearman distance. If \code{mean_rank} contains some \code{NA}s, the corresponding items occupy the bottom positions in the \code{borda_ordering} according to the order they appear in \code{item_names}.
+#' The Borda ranking, obtained from the ordering of the mean rank vector, corresponds to the MLE of the consensus ranking of the Mallows model with Spearman distance. If \code{mean_rank} contains some \code{NA}s, the corresponding items occupy the bottom positions in the \code{borda_ordering} according to the order they appear in \code{item_names}.
 #'
 #' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.
 #' @param marg Logical: whether the first-order marginals have to be computed. Defaults to \code{TRUE}.
 #' @param borda_ord Logical: whether, in the summary statistics, the items must be ordered according to the Borda ranking (i.e., mean rank vector). Defaults to \code{FALSE}.
 #' @param paired_comp Logical: whether the pairwise comparison matrix has to be computed. Defaults to \code{TRUE}.
-#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be considered. Missing values are taken as \code{FALSE}.
-#' @param item_names Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
+#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
+#' @param item_names Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
 #'
 #' @return An object of class \code{"data_descr"}, which is a list with the following named components:
 #'
@@ -432,7 +500,7 @@ myorder_new <- function(x, n_items) {
 #'
 #' Marden JI (1995). Analyzing and modeling rank data. \emph{Monographs on Statistics and Applied Probability} (64). Chapman & Hall, ISSN: 0-412-99521-2. London.
 #'
-#' @seealso \code{\link{plot.data_descr}}
+#' @seealso \code{\link{plot.data_descr}}, \code{\link{print.data_descr}}
 #'
 #' @examples
 #'
@@ -455,12 +523,7 @@ myorder_new <- function(x, n_items) {
 #'
 #' @export
 #'
-data_description <- function(rankings,
-                             marg = TRUE,
-                             borda_ord = FALSE,
-                             paired_comp = TRUE,
-                             subset = NULL,
-                             item_names = NULL) {
+data_description <- function(rankings, marg = TRUE, borda_ord = FALSE, paired_comp = TRUE, subset = NULL, item_names = NULL) {
   if (!is.matrix(rankings)) {
     if (is.vector(rankings)) {
       rankings <- matrix(rankings, nrow = 1)
@@ -549,7 +612,7 @@ data_description <- function(rankings,
 # print.data_descr ----
 #' Print descriptive statistics for partial rankings
 #'
-#' \code{print} method for class \code{"data_descr"}.
+#' @description \code{print} method for class \code{"data_descr"}.
 #'
 #'
 #' @param x An object of class \code{"data_descr"} returned by \code{\link{data_description}}.
@@ -560,6 +623,7 @@ data_description <- function(rankings,
 #' @export print.data_descr
 #' @export
 #'
+
 print.data_descr <- function(x, ...) {
   data_descr_out <- x
 
@@ -603,6 +667,7 @@ print.data_descr <- function(x, ...) {
 #'
 #' @description \code{plot} method for class \code{"data_descr"}.
 #'
+#' @details The plots of the marginals distributions and pairwise comparisons are constructed if the object \code{x} was obtained from the \code{data_description} routine with arguments \code{marg = TRUE} and \code{pc = TRUE}; otherwise, a \code{NULL} element in the output list is returned.
 #'
 #' @param x An object of class \code{"data_descr"} returned by \code{\link{data_description}}.
 #' @param cex_text_mean Positive scalar: the magnification to be used for all the labels in the plot for the mean rank vector. Defaults to 1.
@@ -612,7 +677,7 @@ print.data_descr <- function(x, ...) {
 #' @param cex_range_pc Numeric vector indicating the range of values to be used on each axis in the bubble plot of the paired comparison frequencies. Defaults to \code{c(8,20)}.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
-#' @return Produce 5 plots to display descriptive summaries of the partial ranking dataset, namely: i) a barplot of the frequency distribution (%) of the number of items actually ranked in each partial sequence, ii) a basic pictogram of the mean rank vector, iii) a heatmap of the marginal distirbutions (either by item or by rank), iv) the ecdf of the marginal rank distributions and v) a bubble plot of the pairwise comparison matrix.
+#' @return A list of 5 labelled plots displaying descriptive summaries of the partial ranking dataset, namely: i) \code{n_ranked_distr}: a barplot of the frequency distribution (%) of the number of items actually ranked in each partial sequence, ii) \code{picto_mean_rank}: a basic pictogram of the mean rank vector, iii) \code{marginals}: a heatmap of the marginal distributions (either by item or by rank), iv) \code{ecdf}: the ecdf of the marginal rank distributions and v) \code{pc}: a bubble plot of the pairwise comparison matrix.
 #'
 #' @references
 #' Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York. ISBN 978-3-319-24277-4, \url{https://ggplot2.tidyverse.org}.
@@ -621,22 +686,29 @@ print.data_descr <- function(x, ...) {
 #'
 #' @examples
 #'
-#' ## Example 1. Plot sample statistics for the Antifragility dataset.
+#' ## Example 1. Plot the mean rank vector and marginal distributions for the Antifragility dataset.
 #' r_antifrag <- ranks_antifragility[, 1:7]
 #' desc <- data_description(r_antifrag)
-#' plot(desc)
+#' p_desc <- plot(desc)
+#' p_desc$picto_mean_rank()
+#' p_desc$marginals()
 #'
-#' ## Example 2. Plot sample statistics for the Sports dataset.
+#' ## Example 2. Plot the distribution of the number of ranked items and the
+#' # pairwise comparison matrix for the Sports dataset.
 #' r_sports <- ranks_sports[, 1:8]
 #' desc <- data_description(rankings = r_sports, borda_ord = TRUE)
-#' plot(desc, cex_text_mean = 1.2)
+#' p_desc <- plot(desc, cex_text_mean = 1.2)
+#' p_desc$n_ranked_distr()
+#' p_desc$pc()
 #'
-#' ## Example 3. Plot sample statistics for the Sports dataset by gender.
+#' ## Example 3. Plot the ecdf's for the marginal rank distributions for the Sports dataset by gender.
 #' r_sports <- ranks_sports[, 1:8]
 #' desc_f <- data_description(rankings = r_sports, subset = (ranks_sports$Gender == "Female"))
-#' plot(desc_f, cex_text_mean = 1.2)
+#' p_desc_f <- plot(desc_f, cex_text_mean = 1.2)
+#' p_desc_f$ecdf()
 #' desc_m <- data_description(rankings = r_sports, subset = (ranks_sports$Gender == "Male"))
-#' plot(desc_m, cex_text_mean = 1.2)
+#' p_desc_m <- plot(desc_m, cex_text_mean = 1.2)
+#' p_desc_m$ecdf()
 #'
 #'
 #' @export plot.data_descr
@@ -660,7 +732,7 @@ plot.data_descr <- function(x, cex_text_mean = 1, cex_symb_mean = 12, marg_by = 
   n_items <- length(mean_rank)
   item_names <- names(mean_rank)
 
-  item_col=hue_pal()(n_items)
+  item_col = hue_pal()(n_items)
 
   df_n_ranked <- as.data.frame(round(100 * prop.table(data_descr_out$n_ranked_distr), 1))
   ggp_n_ranked_distr <- ggplot(data = df_n_ranked, aes(x = df_n_ranked$Var1, y = df_n_ranked$Freq)) +
@@ -669,29 +741,28 @@ plot.data_descr <- function(x, cex_text_mean = 1, cex_symb_mean = 12, marg_by = 
     labs(x = "Number of ranked items", y = "Percentage") +
     ylim(0, (max(df_n_ranked$Freq) %/% 10 + 1) * 10) +
     theme_minimal()
-  suppressWarnings(grid.arrange(ggp_n_ranked_distr, nrow = 1))
 
-  plot(x = rep(1, n_items + 2), y = 0:(n_items + 1), xlim = c(-1, 2), ylim = c(0, n_items + 1.25), type = "n", axes = FALSE, xlab = "", ylab = "")
-  points(rep(1, n_items), n_items:1, pch = 18, col = item_col[omr], cex = cex_symb_mean * mean_rank[omr] / n_items)
-  text(0.3, n_items:1, labels = item_names[omr], font = 2, cex = cex_text_mean, adj = 1)
-  text(1.6, n_items:1, labels = round(mean_rank[omr],2), font = 2, cex = cex_text_mean)
-  #mtext(text = "Borda ordering", cex = 1.5, font = 2)
+  plot_list <- list()
+  plot_list$n_ranked_distr <- suppress_ggplot(ggp_n_ranked_distr)
 
-  if(!is.null(data_descr_out$marginals)) {
+  plot_list$picto_mean_rank <- function() {
+    plot(x = rep(1, n_items + 2), y = 0:(n_items + 1), xlim = c(-1, 2), ylim = c(0, n_items + 1.25), type = "n", axes = FALSE, xlab = "", ylab = "")
+    points(rep(1, n_items), n_items:1, pch = 18, col = item_col[omr], cex = cex_symb_mean * mean_rank[omr] / n_items)
+    text(0.3, n_items:1, labels = item_names[omr], font = 2, cex = cex_text_mean, adj = 1)
+    text(1.6, n_items:1, labels = round(mean_rank[omr], 2), font = 2, cex = cex_text_mean)
+  }
+
+  if (!is.null(data_descr_out$marginals)) {
     NN <- nrow(data_descr_out$marginals)
     colnames(data_descr_out$marginals)[-NN] <- item_names
-    marg_melt <- quiet(melt(prop.table(data_descr_out$marginals[-NN, -NN],margin=(if (marg_by=="item") 2 else 1))))
+    marg_melt <- quiet(melt(prop.table(data_descr_out$marginals[-NN, -NN], margin = (if (marg_by == "item") 2 else 1))))
     ggp_marg <- ggplot(data = marg_melt, aes(x = marg_melt$X1, y = marg_melt$X2, fill = marg_melt$value)) +
       geom_tile() +
-     # scale_fill_gradientn(colours=hcl.colors(10,palette="inferno",rev=TRUE),na.value = "transparent",
-     #                       breaks=seq(0,1,.2),labels=seq(0,1,.2),
-     #                       limits=c(0,1)) +
       scale_fill_gradient(low = "mintcream", high = "slateblue3") +
       guides(fill = guide_legend("Prop.")) +
-      ggtitle(paste("Marginal distributions by", (if (marg_by=="item") "item" else "rank"))) +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+      ggtitle(paste("Marginal distributions by", (if (marg_by == "item") "item" else "rank"))) +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
       theme(axis.title = element_blank())
-
 
     ecdf_melt <- quiet(melt(as.data.frame(data_descr_out$rankings)))
     ggp_ecdf <- ggplot(data = ecdf_melt, aes(x = ecdf_melt$value, col = ecdf_melt$variable)) +
@@ -699,11 +770,15 @@ plot.data_descr <- function(x, cex_text_mean = 1, cex_symb_mean = 12, marg_by = 
       ggtitle("Marginal rank distributions") +
       labs(color = "Item") +
       theme(axis.title = element_blank())
-    suppressWarnings(grid.arrange(ggp_marg, ggp_ecdf, nrow = 1))
 
+    plot_list$marginals <- suppress_ggplot(ggp_marg)
+    plot_list$ecdf <- suppress_ggplot(ggp_ecdf)
+  }else{
+    plot_list$marginals <- function() NULL
+    plot_list$ecdf <- function() NULL
   }
 
-  if(!is.null(data_descr_out$pc)) {
+  if (!is.null(data_descr_out$pc)) {
     dimnames(data_descr_out$pc) <- list(item_names, item_names)
     pc_melt <- quiet(melt(t(data_descr_out$pc)))
     ggp_pc <- ggplot(data = pc_melt, aes(x = as.character(pc_melt$X1), y = as.character(pc_melt$X2), colour = pc_melt$X1, size = pc_melt$value)) +
@@ -715,25 +790,44 @@ plot.data_descr <- function(x, cex_text_mean = 1, cex_symb_mean = 12, marg_by = 
       scale_size_continuous(range = cex_range_pc) +
       ggtitle("Paired comparisons") +
       theme(legend.position = "none", panel.background = element_blank(), panel.grid = element_blank(), axis.ticks = element_blank())
-    suppressWarnings(grid.arrange(ggp_pc, nrow = 1))
 
+    plot_list$pc <- suppress_ggplot(ggp_pc)
+  }else{
+    plot_list$pc <- function() NULL
   }
 
+  return(invisible(plot_list))
 }
 
+# suppress_ggplot ----
+#/' Utility for the exported plot.data_descr and plot.emMSmix
+#/'
+#/' Suppress ggplot2 warnings during plotting.
+#/'
+#/' This internal function suppresses warnings generated by ggplot2 when rendering a plot. It ensures the plot is evaluated before warning suppression.
+#/'
+#/' @keywords internal
+#/' @param plot A ggplot2 object to be displayed.
+#/'
+#/' @return A function that prints the plot without emitting warnings.
+#/'
+suppress_ggplot <- function(plot) {
+  force(plot)  # Ensures evaluation before suppression
+  function() suppressWarnings(print(plot))
+}
 
 # rMSmix ----
 #' Random samples from a mixture of Mallows models with Spearman distance
 #'
-#' @description Draw random samples of full rankings from a mixture of Mallow models with Spearman distance.
+#' @description Draw random samples of full rankings from a mixture of Mallows models with Spearman distance.
 #'
 #' @details
 #' When \code{n_items > 10} or \code{mh = TRUE}, the random samples are obtained by using the Metropolis-Hastings algorithm, described in Vitelli et al. (2018) and implemented in the \code{sample_mallows} function of the package \code{BayesMallows} package.
 #'
-#' When \code{theta = NULL} is not provided by the user, the concentration parameters are randomly generated from a uniform distribution on the interval \eqn{(1/n^{2},3/n^{1.5})} of some typical values for the precisions.
+#' When \code{theta = NULL}, the concentration parameters are randomly generated from a uniform distribution on the interval \eqn{(1/n^{2},3/n^{1.5})} containing typical values for the precisions.
 #'
-#' When \code{uniform = FALSE}, the mixing weights are sampled from a symmetric Dirichlet distribution with shape parameters all equal to \eqn{2G}, to favor populated and balanced clusters;
-#' the consensus parameters are sampled to favor well-separated clusters, i. e.,  at least at Spearman distance \eqn{\frac{2}{G}\binom{n+1}{3}} from each other.
+#' When \code{uniform = FALSE}, the mixing weights are sampled from a symmetric Dirichlet distribution with shape parameters all equal to \eqn{2G}, to favor populated and balanced clusters, and
+#' the consensus parameters are sampled to favor well-separated clusters, i. e.,  at least at Spearman distance equal to \eqn{\frac{2}{G}\binom{n+1}{3}} from each other.
 #'
 #' @param sample_size Number of full rankings to be sampled. Defaults to 1.
 #' @param n_items Number of items.
@@ -780,14 +874,8 @@ plot.data_descr <- function(x, cex_text_mean = 1, cex_symb_mean = 12, marg_by = 
 #'
 #' @export
 #'
-rMSmix <- function(sample_size = 1,
-                 n_items,
-                 n_clust = 1,
-                 rho = NULL,
-                 theta = NULL,
-                 weights = NULL,
-                 uniform = FALSE,
-                 mh = TRUE) {
+rMSmix <- function(sample_size = 1, n_items, n_clust = 1, rho = NULL, theta = NULL, weights = NULL, uniform = FALSE, mh = TRUE){
+
   if (is.null(rho)) {
     if (uniform | n_clust == 1) {
       rho <- t(apply(matrix(1:n_items, nrow = n_items, ncol = n_clust), 2, sample))
@@ -874,8 +962,23 @@ rMSmix <- function(sample_size = 1,
   return(list(samples = data_sim, rho = rho, theta = theta, weights = weights, classification = classification))
 }
 
-# mar_cens ----
-mar_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1)){
+# arbitrary_cens ----
+#/' Utility for the exported data_censoring
+#/'
+#/' Convert full rankings into partial rankings with missing data in arbitrary positions (not necessarily in the top ones).
+#/'
+#/' @keywords internal
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.
+#/' @param nranked Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If \code{nranked = NULL} (default), the number of positions are randomly generated according to the probabilities in the \code{probs} argument.
+#/' @param probs Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked = NULL}. Defaults to equal probabilities.
+#/'
+#/' @return A list of two named objects:
+#/'  \describe{
+#/'  \item{\code{partialdata}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial (censored) rankings in each row. Missing positions are coded as \code{NA}.}
+#/'  \item{\code{nranked}}{Integer vector of length \eqn{N} with the actual number of items ranked in each partial sequence after censoring.}
+#/'  }
+#/'
+arbitrary_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1)){
 
   n_items <- ncol(rankings)
   N <- nrow(rankings)
@@ -897,6 +1000,21 @@ mar_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1)
 }
 
 # topk_cens ----
+#/' Utility for the exported data_censoring
+#/'
+#/' Convert full rankings into top-k partial rankings with possibly different lengths.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.
+#/' @param nranked Integer vector of length \eqn{N} with the desired number of top positions to be retained in each partial sequence after censoring. If \code{nranked = NULL} (default), the number of top positions are randomly generated according to the probabilities in the \code{probs} argument.
+#/' @param probs Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of top positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked = NULL}. Defaults to equal probabilities.
+#/'
+#/' @return A list of two named objects:
+#/'  \describe{
+#/'  \item{\code{partialdata}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial (censored) rankings in each row. Missing positions are coded as \code{NA}.}
+#/'  \item{\code{nranked}}{Integer vector of length \eqn{N} with the actual number of items ranked in each partial sequence after censoring.}
+#/'  }
+#/'
 topk_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1)){
 
   n_items <- ncol(rankings)
@@ -920,20 +1038,21 @@ topk_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1
 # data_censoring ----
 #' Censoring of full rankings
 #'
-#' Convert full rankings into either top-k or MAR (missing at random) partial rankings.
+#' @description Convert full rankings into either top-k rankings or into partial rankings with missing data in arbitrary positions.
 #'
+#' @details
 #' Both forms of partial rankings can be obtained into two ways: (i) by specifying, in the \code{nranked} argument, the number of positions to be retained in each partial ranking; (ii) by setting \code{nranked = NULL} (default) and specifying, in the \code{probs} argument, the probabilities of retaining respectively \eqn{1, 2, ..., (n-1)} positions in the partial rankings (recall that a partial sequence with \eqn{(n-1)} observed entries corresponds to a full ranking).
 #'
-#' In the censoring process of full rankings into MAR partial sequences, the positions to be retained are uniformly generated.
+#' When \code{topk = FALSE}, the exact positions that must be retained into the partial sequences after censoring are uniformly generated, regardless of the specification of the \code{nranked} argument.
 #'
 #' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.
-#' @param type Character indicating which censoring process must be used. Options are: \code{"topk"} and \code{"mar"}. Defaults to \code{"topk"}.
-#' @param nranked Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If not supplied (\code{NULL}), the number of positions are randomly generated according to the probabilities in the \code{probs} argument. Defaults to \code{NULL}.
-#' @param probs Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked} argument is \code{NULL} (see Details). Default is equal probabilities.
+#' @param topk Logical: whether the full rankings must be converted into top-k rankings (\code{TRUE}) or into partial rankings with missing data in arbitrary positions (\code{FALSE}). Defaults to \code{TRUE}.
+#' @param nranked Integer vector of length \eqn{N} with the desired number of positions to be retained in each partial sequence after censoring. If \code{nranked = NULL} (default), the number of positions are randomly generated according to the probabilities in the \code{probs} argument.
+#' @param probs Numeric vector of the \eqn{(n-1)} probabilities for the random generation of the number of positions to be retained in each partial sequence after censoring (normalization is not necessary). Used only if \code{nranked = NULL}. Defaults to equal probabilities.
 #'
 #' @return A list of two named objects:
 #'  \describe{
-#'  \item{\code{part_rankings}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial (censored) rankings in each row. Missing positions must be coded as \code{NA}.}
+#'  \item{\code{part_rankings}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial (censored) rankings in each row. Missing positions are coded as \code{NA}.}
 #'  \item{\code{nranked}}{Integer vector of length \eqn{N} with the actual number of items ranked in each partial sequence after censoring.}
 #'  }
 #'
@@ -943,34 +1062,36 @@ topk_cens <- function(rankings, nranked = NULL, probs = rep(1,ncol(rankings) - 1
 #' # Top-3 censoring (assigned number of top positions to be retained)
 #' n <- 7
 #' r_antifrag <- ranks_antifragility[, 1:n]
-#' data_censoring(r_antifrag, type = "topk", nranked = rep(3,nrow(r_antifrag)))
+#' data_censoring(r_antifrag, topk = TRUE, nranked = rep(3,nrow(r_antifrag)))
 #' # Random top-k censoring with assigned probabilities
 #' set.seed(12345)
-#' data_censoring(r_antifrag, type = "topk", probs = 1:(n-1))
+#' data_censoring(r_antifrag, topk = TRUE, probs = 1:(n-1))
 #'
 #' ## Example 2. Simulate full rankings from a basic Mallows model with Spearman distance
 #' n <- 10
 #' N <- 100
 #' set.seed(12345)
 #' rankings <- rMSmix(sample_size = N, n_items = n)$samples
-#' # MAR censoring with assigned number of positions to be retained
+#' # Censoring in arbitrary positions with assigned number of ranks to be retained
 #' set.seed(12345)
 #' nranked <- round(runif(N,0.5,1)*n)
 #' set.seed(12345)
-#' mar_ranks1 <- data_censoring(rankings, type = "mar", nranked = nranked)
-#' mar_ranks1
-#' identical(mar_ranks1$nranked, nranked)
-#' # MAR censoring with assigned probabilities
+#' arbitr_ranks1 <- data_censoring(rankings, topk = FALSE, nranked = nranked)
+#' arbitr_ranks1
+#' identical(arbitr_ranks1$nranked, nranked)
+#' # Censoring in arbitrary positions with random number of ranks to be retained
 #' set.seed(12345)
 #' probs <- runif(n-1, 0, 0.5)
 #' set.seed(12345)
-#' mar_ranks2 <- data_censoring(rankings, type = "mar", probs = probs)
-#' mar_ranks2
-#' prop.table(table(mar_ranks2$nranked))
+#' arbitr_ranks2 <- data_censoring(rankings, topk = FALSE, probs = probs)
+#' arbitr_ranks2
+#' prop.table(table(arbitr_ranks2$nranked))
 #' round(prop.table(probs), 2)
 #'
 #' @export
-data_censoring <- function(rankings, type = "topk", nranked = NULL, probs = rep(1,ncol(rankings) - 1)){
+#'
+#'
+data_censoring <- function(rankings, topk = TRUE, nranked = NULL, probs = rep(1,ncol(rankings) - 1)){
 
   if (!is.matrix(rankings)) {
     if (is.vector(rankings)) {
@@ -985,10 +1106,10 @@ data_censoring <- function(rankings, type = "topk", nranked = NULL, probs = rep(
   }
 
 
-  if(type == "topk"){
+  if(topk){
     out = topk_cens(rankings=rankings, nranked=nranked, probs=probs)
   }else{
-    out = mar_cens(rankings=rankings, nranked=nranked, probs=probs)
+    out = arbitrary_cens(rankings=rankings, nranked=nranked, probs=probs)
   }
   return(list(part_rankings=out$partialdata,nranked=out$nranked))
 }
@@ -998,24 +1119,24 @@ data_censoring <- function(rankings, type = "topk", nranked = NULL, probs = rep(
 # spear_dist ----
 #' Spearman distance
 #'
-#' @description Compute either the Spearman distance between each row of a full ranking matrix and a reference complete ranking, or the Spearman distance matrix between the rows of a full ranking matrix.
+#' @description Compute either the Spearman distance between each row of a full ranking matrix and a reference complete ranking, or the Spearman distance matrix between all pairs of full rankings.
 #'
-#' @details When \code{rho = NULL}, \code{spear_dist} recalls the \code{\link{dist}} function from the \code{base} package to compute the squared Euclidian distance between full rankings; otherwise, it recalls the \code{\link{compute_rank_distance}} routine of the \code{BayesMallows} package, which implements several metrics for rankings.
+#' @details When \code{rho = NULL}, \code{spear_dist} recalls the \code{\link{dist}} function from the \code{base} package to compute the Spearman metric as squared Euclidian distance between all pairs of rows in \code{rankings}; otherwise, it recalls the \code{compute_rank_distance} routine of the \code{BayesMallows} package for the computation of the Spearman distance between each row in \code{rankings} and the full ranking \code{rho}.
 #'
 #' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with full rankings in each row.
 #' @param rho An optional full ranking whose Spearman distance from each row in \code{rankings} must be computed. Defaults to \code{NULL}, meaning that the Spearman distance matrix between all pairs of rows in \code{rankings} must be computed.
-#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.
+#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
 #' @param diag Logical: whether the diagonal of the Spearman distance matrix must be returned. Used when \code{rho = NULL}. Defaults to \code{FALSE}.
 #' @param upper Logical: whether the upper triangle of the Spearman distance matrix must be printed. Used when \code{rho = NULL}. Defaults to \code{FALSE}.
 #' @param plot_dist_mat Logical: whether the Spearman distance matrix must be plotted. Used when \code{rho = NULL}. Defaults to \code{FALSE}.
 #'
 #'
-#' @return When \code{rho = NULL}, an object of class \code{"dist"} corresponding to the Spearman distance matrix; otherwise, a vector with the Spearman distances between each row in \code{rankings} and \code{rho}.
+#' @return When \code{rho = NULL}, an object of class \code{"dist"} corresponding to the Spearman distance matrix; otherwise, a vector with the Spearman distances between each row in \code{rankings} and the full ranking \code{rho}.
 #'
 #' @references
 #' Sørensen Ø, Crispino M, Liu Q and Vitelli V (2020). BayesMallows: An R Package for the Bayesian Mallows Model. \emph{The R Journal}, \bold{12}(1), pages 324--342, DOI: 10.32614/RJ-2020-026.
 #'
-#' @seealso  \code{\link{plot.dist}}, \code{\link[BayesMallows]{compute_rank_distance}}
+#' @seealso  \code{\link{plot.dist}}
 #'
 #' @examples
 #'
@@ -1081,7 +1202,7 @@ spear_dist <- function(rankings, rho = NULL, subset = NULL, diag = FALSE, upper 
 # plot.dist ----
 #' Plot the Spearman distance matrix
 #'
-#' @description \code{plot} method for class \code{"dist"}. It is useful to preliminary explore the presence of patterns (groups) of similar preferences in the ranking dataset.
+#' @description \code{plot} method for class \code{"dist"}. It displays a heatmap which is useful to preliminarily explore the presence of patterns (groups) of similar preferences in the ranking dataset.
 #'
 #' @details \code{plot.dist} can visualize a distance matrix of any metric, provided that its class is \code{"dist"}. It can take a few seconds if the size of the distance matrix is large.
 #'
@@ -1091,10 +1212,10 @@ spear_dist <- function(rankings, rho = NULL, subset = NULL, diag = FALSE, upper 
 #' @param order Logical: whether the rows of the distance matrix must be ordered. Defaults to \code{TRUE}.
 #' @param show_labels Logical: whether the labels must be displayed on the axes. Defaults to \code{TRUE}.
 #' @param lab_size Positive scalar: the magnification of the labels on the axes. Defaults to 3.
-#' @param gradient List of three elements with the colors for low, mid and high values of the distances in the heatmap. The element \code{mid} can take the value of NULL.
+#' @param gradient List of three elements with the colors for low, mid and high values of the distances in the heatmap. The element \code{mid} can take the value \code{NULL}.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
-#' @return Produce a heatmap of the Spearman distance matrix between all pairs of full rankings.
+#' @return A heatmap of the Spearman distance matrix between all pairs of full rankings.
 #'
 #' @references
 #'
@@ -1168,13 +1289,13 @@ plot.dist <- function(x, order = TRUE, show_labels = TRUE, lab_size = 3, gradien
 #'
 #' ## Example 1. Exact Spearman distance distribution for n=20 items.
 #' distr <- spear_dist_distr(n_items = 20, log = FALSE)
-#' plot(distr$distances,distr$logcard,type='l',ylab = 'Frequency',xlab='d',
+#' plot(distr$distances,distr$logcard,type="l",ylab="Frequency",xlab="d",
 #' main='Distribution of the Spearman distance\nunder the null model')
 #'
 #'
 #' ## Example 2. Approximate Spearman distance distribution for n=50 items with log-frequencies.
 #'distr <- spear_dist_distr(n_items = 50)
-#'plot(distr$distances,distr$logcard,type='l',ylab = 'Log-frequency',xlab='d',
+#'plot(distr$distances,distr$logcard,type="l",ylab="Log-frequency",xlab="d",
 #'     main='Log-distribution of the Spearman distance\nunder the null model')
 #'
 #' @export
@@ -1203,6 +1324,16 @@ spear_dist_distr <- function(n_items, log = TRUE) {
 
 
 # log_partition_fun_spear ----
+#/' Utility for the exported partition_fun_spear
+#/'
+#/' Compute (either the exact or the approximate) logarithm of the partition function of the Mallows model with Spearman distance.
+#/'
+#/' @keywords internal
+#/' @param theta Non-negative precision parameter.
+#/' @param n_items Number of items.
+#/'
+#/' @return The log-partition function of the Mallows models with Spearman distance.
+#/'
 log_partition_fun_spear <- function(theta, n_items) {
   out <- suppressMessages(spear_dist_distr(n_items))
   logcardest <- out$logcard
@@ -1217,18 +1348,18 @@ log_partition_fun_spear <- function(theta, n_items) {
 # partition_fun_spear ----
 #' Partition function of the Mallows model with Spearman distance
 #'
-#' @description Compute (either the exact or the approximate) (log-)partition function of the Mallow model with Spearman distance.
+#' @description Compute (either the exact or the approximate) (log-)partition function of the Mallows model with Spearman distance.
 #'
 #' @details
-#' When \eqn{n\leq 20}, the partition is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
+#' When \eqn{n\leq 20}, the partition function is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
-#' The partition function is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, the partition function is equivalent to \eqn{n!}, which is the normalizing constant of the uniform (null) model.
+#' The partition function is independent of the consensus ranking of the Mallows model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, the partition function is equivalent to \eqn{n!}, which is the normalizing constant of the uniform (null) model.
 #'
 #' @param theta Non-negative precision parameter.
 #' @param n_items Number of items.
-#' @param log Logical: whether the partition function on the log scale must be returned. Defaults to \code{TRUE}.
+#' @param log Logical: whether the partition function must be returned on the log scale. Defaults to \code{TRUE}.
 #'
-#' @return Either the exact or the approximate (log-)partition function of the Mallow model with Spearman distance.
+#' @return Either the exact or the approximate (log-)partition function of the Mallows model with Spearman distance.
 #'
 #' @references
 #' Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
@@ -1243,25 +1374,24 @@ log_partition_fun_spear <- function(theta, n_items) {
 #' partition_fun_spear(theta = 0, n_items = 10, log = FALSE)
 #' factorial(10)
 #'
-#' ## Example 2. Partition function of the Mallow model with Spearman distance.
+#' ## Example 2. Partition function of the Mallows model with Spearman distance.
 #' partition_fun_spear(theta = 0.5, n_items = 10, log = FALSE)
 #'
-#' ## Example 3. Log-partition function of the Mallow model with Spearman distance
+#' ## Example 3. Log-partition function of the Mallows model with Spearman distance
 #' ## as a function of theta.
 #' partition_fun_spear_vec <- Vectorize(partition_fun_spear, vectorize.args = "theta")
 #' curve(partition_fun_spear_vec(x, n_items = 10), from = 0, to = 0.1, lwd = 2,
 #'   xlab = expression(theta), ylab = expression(log(Z(theta))),
-#'   main = "Log-partition function of the Mallow model with Spearman distance",
+#'   main = "Log-partition function of the Mallows model with Spearman distance",
 #'   ylim = c(7, log(factorial(10))))
 #'
-#' ## Example 4. Log-partition function of the Mallow model with Spearman distance
-#' ## for varying number of items
-#' # and values of the concentration parameter.
+#' ## Example 4. Log-partition function of the Mallows model with Spearman distance
+#' ## for varying number of items and values of the concentration parameter.
 #' partition_fun_spear_vec <- Vectorize(partition_fun_spear, vectorize.args = "theta")
 #' curve(partition_fun_spear_vec(x, n_items = 10),
 #'   from = 0, to = 0.1, lwd = 2, col = 2,
 #'   xlab = expression(theta), ylab = expression(log(Z(theta))),
-#'   main = "Log-partition function of the Mallow model with Spearman distance",
+#'   main = "Log-partition function of the Mallows model with Spearman distance",
 #'   ylim = c(0, log(factorial(30))))
 #' curve(partition_fun_spear_vec(x, n_items = 20), add = TRUE, col = 3, lwd = 2)
 #' curve(partition_fun_spear_vec(x, n_items = 30), add = TRUE, col = 4, lwd = 2)
@@ -1269,6 +1399,7 @@ log_partition_fun_spear <- function(theta, n_items) {
 #'   col = 2:4, lwd = 2, bty = "n")
 #'
 #' @export
+#'
 #'
 partition_fun_spear <- function(theta, n_items, log = TRUE) {
 
@@ -1284,6 +1415,16 @@ partition_fun_spear <- function(theta, n_items, log = TRUE) {
 
 
 # log_expect_spear_dist ----
+#/' Utility for the exported expected_spear_dist
+#/'
+#/' Compute (either the exact or the approximate) log-expectation of the Spearman distance under the Mallows model with Spearman distance.
+#/'
+#/' @keywords internal
+#/' @param theta Non-negative precision parameter.
+#/' @param n_items Number of items.
+#/'
+#/' @return The log-expected value of the Spearman distance under the Mallows model with Spearman distance.
+#/'
 log_expect_spear_dist <- function(theta, n_items) {
 
   out <- suppressMessages(spear_dist_distr(n_items))
@@ -1300,18 +1441,18 @@ log_expect_spear_dist <- function(theta, n_items) {
 # expected_spear_dist ----
 #' Expectation of the Spearman distance
 #'
-#' @description Compute (either the exact or the approximate) (log-)expectation of the Spearman distance under the Mallow model with Spearman distance.
+#' @description Compute (either the exact or the approximate) (log-)expectation of the Spearman distance under the Mallows model with Spearman distance.
 #'
 #' @details
 #' When \eqn{n\leq 20}, the expectation is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
-#' The expected Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, this is equal to \eqn{\frac{n^3-n}{6}}, which is the expectation of the Spearman distance under the uniform (null) model.
+#' The expected Spearman distance is independent of the consensus ranking of the Mallows model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, this is equal to \eqn{\frac{n^3-n}{6}}, which is the expectation of the Spearman distance under the uniform (null) model.
 #'
 #' @param theta Non-negative precision parameter.
 #' @param n_items Number of items.
 #' @param log Logical: whether the expected Spearman distance on the log scale must be returned. Defaults to \code{TRUE}.
 #'
-#' @return Either the exact or the approximate (log-)expected value of the Spearman distance under the Mallow model with Spearman distance.
+#' @return Either the exact or the approximate (log-)expected value of the Spearman distance under the Mallows model with Spearman distance.
 #'
 #' @references
 #' Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
@@ -1371,23 +1512,18 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 # var_spear_dist ----
 #' Variance of the Spearman distance
 #'
-#' @description Compute (either the exact or the approximate) (log-)variance of the Spearman distance under the Mallow model with Spearman distance.
+#' @description Compute (either the exact or the approximate) (log-)variance of the Spearman distance under the Mallows model with Spearman distance.
 #'
 #' @details
-#' When \eqn{n\leq 20}, the variance is exactly computed by relying on the Spearman distance distribution
-#' provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
+#' When \eqn{n\leq 20}, the variance is exactly computed by relying on the Spearman distance distribution provided by OEIS Foundation Inc. (2023). When \eqn{n>20}, it is approximated with the method introduced by Crispino et al. (2023) and, if \eqn{n>170}, the approximation is also restricted over a fixed grid of values for the Spearman distance to limit computational burden.
 #'
-#' When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman
-#' distance under the uniform (null) model.
-#'
-#' The variance of the Spearman distance is independent of the consensus ranking of the Mallow model with Spearman distance due to the right-invariance
-#' of the metric.
+#' The variance of the Spearman distance is independent of the consensus ranking of the Mallows model with Spearman distance due to the right-invariance of the metric. When \eqn{\theta=0}, this is equal to \eqn{\frac{n^2(n-1)(n+1)^2}{36}}, which is the variance of the Spearman distance under the uniform (null) model.
 #'
 #' @param theta Non-negative precision parameter.
 #' @param n_items Number of items.
 #' @param log Logical: whether the expected Spearman distance on the log scale must be returned. Defaults to \code{TRUE}.
 #'
-#' @return Either the exact or the approximate (log-)variance of the Spearman distance under the Mallow model with Spearman distance.
+#' @return Either the exact or the approximate (log-)variance of the Spearman distance under the Mallows model with Spearman distance.
 #'
 #' @references
 #' Crispino M., Mollica C., Astuti V. and Tardella L. (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
@@ -1414,7 +1550,7 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 #'   xlab = expression(theta), ylab = expression(log(V[theta](D))),
 #'   main = "Log-variance of the Spearman distance")
 #'
-#' ## Example 4. Log--variance of the Spearman distance for varying number of items
+#' ## Example 4. Log-variance of the Spearman distance for varying number of items
 #' # and values of the concentration parameter.
 #' var_spear_dist_vec <- Vectorize(var_spear_dist, vectorize.args = "theta")
 #' curve(var_spear_dist_vec(x, n_items = 10),
@@ -1427,8 +1563,6 @@ expected_spear_dist <- function(theta, n_items, log = TRUE) {
 #'   col = 2:4, lwd = 2, bty = "n")
 #'
 #' @export
-#'
-#'
 #'
 var_spear_dist <- function(theta,n_items,log=TRUE){
 
@@ -1451,7 +1585,16 @@ var_spear_dist <- function(theta,n_items,log=TRUE){
   return(if (log) log(ed2) else ed2)
 }
 
-# paired_comparisons ----
+# paired_comparisonsMSmix ----
+#/' Utility for the exported data_description
+#/'
+#/' Construct the paired comparison matrix for a partial ranking dataset.
+#/'
+#/' @keywords internal
+#/' @param rank_data Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with partial rankings in each row.
+#/'
+#/' @return Integer \eqn{n}\eqn{\times}{x}\eqn{n} paired comparison matrix: the \eqn{(i,i')}-th entry indicates the number of sample units that preferred item \eqn{i} to item \eqn{i'}.
+#/'
 paired_comparisonsMSmix <- function(rank_data) {
 
   N <- nrow(rank_data)
@@ -1464,6 +1607,20 @@ paired_comparisonsMSmix <- function(rank_data) {
 
 
 # itemwise_rank_marginals ----
+#/' Utility for the exported plot.bootMSmix
+#/'
+#/' Compute the first-order marginals (marginal rank distributions of each item) for the bootstrap samples of a component-specific consensus ranking.
+#/'
+#/' Differently from the matrix \code{marginals} returned by the \code{data_description} function and reporting the absolute counts, the relative frequency distributions are computed.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer matrix of bootstrap samples for a component-specific consensus ranking parameter or, more generally, a ranking matrix.
+#/' @param item_names Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
+#/' @param borda_ord Logical: whether the items (columns of the first-order marginal matrix) must be ordered according to the Borda ranking (i.e., mean rank vector). Defaults to \code{FALSE}.
+#/' @param subset Optional logical or integer vector specifying the subset of rows of \code{rankings} to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
+#/'
+#/' @return Numeric \eqn{n}\eqn{\times}{x}\eqn{n} matrix of the (relative) first-order marginals in each column: the \eqn{(j,i)}-th entry indicates the relative frequency of times that item \eqn{i} is ranked in position \eqn{j}.
+#/'
 itemwise_rank_marginals <- function(rankings, item_names = NULL, borda_ord = TRUE, subset = NULL) {
 
   if (!is.matrix(rankings)) {
@@ -1509,6 +1666,18 @@ itemwise_rank_marginals <- function(rankings, item_names = NULL, borda_ord = TRU
 
 
 # itemwise_rank_hdi ----
+#/' Utility for the exported bootstrapMSmix
+#/'
+#/' Compute the highest density interval of each item for the bootstrap samples of a component-specific consensus ranking.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer matrix of bootstrap samples for a component-specific consensus ranking parameter or, more generally, a ranking matrix.
+#/' @param item_names Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
+#/' @param prob_level Numeric: value in the interval (0,1] indicating the desired probability level of the highest density sets. Defaults to 0.95.
+#/' @param subset Optional logical or integer vector specifying the subset of rows of \code{rankings} to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
+#/'
+#/' @return A data frame with columns containing the highest density interval of each item.
+#/'
 itemwise_rank_hdi <- function(rankings, item_names = NULL, prob_level = 0.95, subset = NULL) {
 
   if(prob_level <= 0 | prob_level > 1){
@@ -1553,6 +1722,17 @@ itemwise_rank_hdi <- function(rankings, item_names = NULL, prob_level = 0.95, su
 
 
 # rank_hdi ----
+#/' Utility for the internal itemwise_rank_hdi
+#/'
+#/' Compute the highest density interval of an item from its marginal rank distribution.
+#/'
+#/' @keywords internal
+#/' @param ranks Integer vector containing the ranks of a given item.
+#/' @param n_items Number of items.
+#/' @param prob_level Numeric: value in the interval (0,1] indicating the desired probability level of the highest density sets. Defaults to 0.95.
+#/'
+#/' @return String indicating the highest density interval of a given item.
+#/'
 rank_hdi <- function(ranks, n_items, prob_level) {
 
   prop <- prop.table(table(factor(ranks, levels = 1:n_items)))
@@ -1582,31 +1762,80 @@ rank_hdi <- function(ranks, n_items, prob_level) {
 }
 
 
-# estn ----
+# f1_estn ----
+#/' Utility for the internal estn
+#/'
+#/' Compute the estimated probabilities of the distinct FULL ranking compatible with a given partial sequence in \code{rankings_part} for the EM algorithm based on \code{data_augmentation} in the homogeneous case (\eqn{G=1}).
+#/'
+#/' @keywords internal
+#/' @param elem Integer matrix of full rankings compatible with a given partial sequence in \code{rankings_part}.
+#/' @param freq_part Frequency of a given partial sequence in \code{rankings_part}.
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current value of the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector with the current value of the \eqn{G} component-specific precision parameters.
+#/'
+#/' @return Numeric vector with the estimated probabilities of the distinct full ranking compatible with a given partial sequence in \code{rankings_part}.
+#/'
 f1_estn <- function(elem,freq_part,rho,theta){
   tmp <- -theta * compute_rank_distance(elem, rho, "spearman")
   gr <- exp((tmp - max(tmp)))
   gr <- prop.table(gr)
   nx <- freq_part * gr
   return(nx)
-}
+} # case G=1: vector of length M=number of complete rankings
+# compatible with a given partial ranking, whose generic entry is the term of the
+# sum in eq. (9) of paper published on SC (2023)
 
+
+# f2_estn ----
+#/' Utility for the internal estn
+#/'
+#/' Compute the estimated probabilities of the distinct FULL ranking compatible with a given partial sequence in \code{rankings_part} for the EM algorithm based on \code{data_augmentation} in the heterogeneous case (\eqn{G>1}).
+#/'
+#/' @keywords internal
+#/' @param elem Integer matrix of full rankings compatible with a given partial sequence in \code{rankings_part}.
+#/' @param freq_part Frequency of a given partial sequence in \code{rankings_part}.
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current value of the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector with the current value of the \eqn{G} component-specific precision parameters.
+#/' @param weights Numeric vector with the current value of the \eqn{G} mixture weights.
+#/' @param logZ Numeric vector with the current value of the partition function in the \eqn{G} component-specific precision parameters.
+#/'
+#/' @return Numeric vector with the estimated probabilities of the distinct full ranking compatible with a given partial sequence in \code{rankings_part}.
+#/'
 f2_estn <- function(elem,freq_part,rho,theta,weights,logZ){
 
   if (nrow(elem) == 1) {
     tmp2dist <- matrix(apply(rho, 1, compute_rank_distance, rankings = elem, metric = "spearman"), ncol = 1)
-  } else {
+  } else { # 1*M matrix
     tmp2dist <- t(apply(rho, 1, compute_rank_distance, rankings = elem, metric = "spearman"))
-  }
+  } # G*M matrix
 
-  tmp <- -theta * tmp2dist + log(weights) - logZ
+  tmp <- -theta * tmp2dist + log(weights) - logZ # G*M matrix
   gr <- exp(tmp - max(tmp))
-  gr <- colSums(gr)
+  gr <- colSums(gr) # vector of length M
   gr <- prop.table(gr)
   nx <- freq_part * gr
   return(nx)
-}
+} # case G>1: vector of length M=number of complete rankings
+# compatible with a given partial ranking, whose generic entry is the term of the
+# sum in eq. (9) of paper published on SC (2023)
 
+# estn ----
+#/' Utility for the internal em_db_mix and the exported fitMSmix
+#/'
+#/' Compute the estimated frequencies of each \eqn{M} distinct FULL ranking for the EM algorithm based on \code{data_augmentation}.
+#/'
+#/' @keywords internal
+#/' @param theta Numeric vector with the current value of the \eqn{G} component-specific precision parameters.
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current value of the component-specific consensus rankings in each row.
+#/' @param weights Numeric vector with the current value of the \eqn{G} mixture weights.
+#/' @param aug_list A list with elements corresponding to the matrices of full rankings compatible with the partial sequences in \code{rankings_part}.
+#/' @param aug_mat Integer matrix of full rankings with rows given by the stacked matrices in \code{aug_list}.
+#/' @param aug_mat_vec Character vector with elements corresponding to the rows of \code{aug_mat} converted into strings.
+#/' @param freq_part Integer vector with the frequencies of partial sequences in \code{rankings_part}.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return Numeric vector with the \eqn{M} estimated frequencies of each distinct full ranking compatible with the partial sequences in \code{rankings_part}.
+#/'
 estn <- function(theta, rho, weights,
                  aug_list, aug_mat, aug_mat_vec,
                  freq_part, cardinalities) {
@@ -1633,6 +1862,15 @@ estn <- function(theta, rho, weights,
 }
 
 # get_log_card_approx_spearman ----
+#/' Utility for the exported spear_dist_distr
+#/'
+#/' Compute the approximate log-frequency distribution of the Spearman distance in the case when \eqn{n>20} and \eqn{n<=170}.
+#/'
+#/' @keywords internal
+#/' @param n_items Number of items.
+#/'
+#/' @return A list of two named objects: 1) \code{logcard}: numeric vector of log-frequencies corresponding to each value in \code{dist}; 2) \code{dist}: numeric vector of all the possible Spearman distance values.
+#/'
 get_log_card_approx_spearman <- function (n_items) {
   log_n <- lgamma(n_items + 1)
   a0 <- n_items * (-0.24/sqrt(n_items))
@@ -1668,6 +1906,15 @@ get_log_card_approx_spearman <- function (n_items) {
 }
 
 # get_log_card_approx_spearman_grid ----
+#/' Utility for the exported spear_dist_distr
+#/'
+#/' Compute the approximate log-frequency distribution of the Spearman distance over a fixed grid of \eqn{10^6} distance values. This is applied when \eqn{n>170}, to limit the computational burden and memory space needed when \eqn{n} is very high.
+#/'
+#/' @keywords internal
+#/' @param n_items Number of items.
+#/'
+#/' @return A list of two named objects: 1) \code{logcard}: numeric vector of log-frequencies corresponding to each value in \code{dist}; 2) \code{dist}: numeric vector of all the possible Spearman distance values.
+#/'
 get_log_card_approx_spearman_grid <- function (n_items) {
   n_fac <- factorialZ(n_items)
   a0 <- n_items * (-0.24/sqrt(n_items))
@@ -1697,6 +1944,19 @@ get_log_card_approx_spearman_grid <- function (n_items) {
 
 
 # log_part_funct_spear_hide ----
+#/' Utility for the internal log_lik_inter_spearman and estn
+#/'
+#/' Compute (either the exact or the approximate) logarithm of the partition function of the Mallows model with Spearman distance.
+#/'
+#/' Although this internal routine parallels the utility \code{log_partition_fun_spear}, it allows to speed up the iterative log-likelihood evaluation and E-step in the EM algorithm.
+#/'
+#/' @keywords internal
+#/' @param theta Non-negative precision parameter.
+#/' @param distances Numeric vector of all the possible Spearman distance values.
+#/' @param logcardest Numeric vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return The log-partition function of the Mallows models with Spearman distance.
+#/'
 log_part_funct_spear_hide <- function(theta, distances, logcardest) {
   tmp <- logcardest - theta * distances
   tmp2 <- max(tmp)
@@ -1706,6 +1966,20 @@ log_part_funct_spear_hide <- function(theta, distances, logcardest) {
 
 
 # log_lik_inter_spearman ----
+#/' Utility for several likelihood-related internal functions
+#/'
+#/' Compute the log-likelihood values for each distinct COMPLETE ranking under each component-specific (basic) Mallows model with Spearman distance.
+#/'
+#/' This routine allows to speed up the iterative log-likelihood evaluation in the EM algorithm.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param rankings Integer matrix with full rankings in each row, whose content depends on the type of originally observed ranking data (full or partial) and the selected EM algorithm.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return Numeric matrix of log-likelihood values of each distinct full ranking under each mixture component.
+#/'
 log_lik_inter_spearman <- function(rho, theta, rankings, cardinalities) {
   n_items <- ncol(rankings)
   cn <- n_items * (n_items + 1) * (2 * n_items + 1) / 6
@@ -1721,6 +1995,22 @@ log_lik_inter_spearman <- function(rho, theta, rankings, cardinalities) {
 
 
 # log_lik_db_mix ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the log-likelihood value for the parameters of a mixture of Mallows models with Spearman distance on COMPLETE rankings ONLY.
+#/'
+#/' This routine allows to speed up the iterative log-likelihood evaluation in the EM algorithm.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param weights Numeric vector of \eqn{G} positive mixture weights (normalization is not necessary).
+#/' @param rankings Integer matrix with full rankings in each row, whose content depends on the type of originally observed ranking data (full or partial) and the selected EM algorithm.
+#/' @param freq_compl Integer vector with the (observed or estimated) frequencies of each distinct full ranking.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return The log-likelihood value.
+#/'
 log_lik_db_mix <- function(rho, theta, weights, rankings, freq_compl, cardinalities) {
   temp <- log_lik_inter_spearman(
     rho = rho, theta = theta, rankings = rankings,
@@ -1731,9 +2021,21 @@ log_lik_db_mix <- function(rho, theta, weights, rankings, freq_compl, cardinalit
   return(log_lik)
 } # scalar
 
-
-
 # log_lik_db_mix_partial ----
+#/' Utility for the internal lik_partialMSmix and the log-likelihood evaluation in the EM algorithm.
+#/'
+#/' Compute the log-likelihood value for the parameters of a mixture of Mallows models with Spearman distance on PARTIAL rankings ONLY. The partial observations are augmented with the set of all possible compatible full rankings to allow the computation of the marginal likelihood.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param weights Numeric vector of \eqn{G} positive mixture weights.
+#/' @param aug_list A list with elements corresponding to the matrices of full rankings compatible with each distinct partial sequence.
+#/' @param freq_part Integer vector with the \eqn{L} observed frequencies of each distinct partial ranking.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return The log-likelihood value.
+#/'
 log_lik_db_mix_partial <- function(rho,
                                    theta,
                                    weights,
@@ -1751,8 +2053,20 @@ log_lik_db_mix_partial <- function(rho,
   return(log_lik_partial)
 } # scalar
 
-
 # lik_partialMSmix ----
+#/' Utility for the exported likMSmix
+#/'
+#/' Compute the (log-)likelihood value for the parameters of a mixture of Mallows models with Spearman distance on PARTIAL rankings ONLY. The partial observations are augmented with the set of all possible compatible full rankings to allow the computation of the marginal likelihood.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param weights Numeric vector of \eqn{G} positive mixture weights.
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with the individual partial sequences in each row.
+#/' @param log Logical: whether the log-likelihood must be returned.
+#/'
+#/' @return The (log)-likelihood value.
+#/'
 lik_partialMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
   n_items <- ncol(rankings)
   uniranks <- frequence(rankings)
@@ -1785,8 +2099,18 @@ lik_partialMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
   return(out)
 } # scalar
 
-
 # LoglikInterMSmix ----
+#/' Utility for the internal LoglikMSmix
+#/'
+#/' Compute the log-likelihood values for each distinct COMPLETE ranking under each component-specific (basic) Mallows model with Spearman distance.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param rankings Integer matrix with the distinct full sequences in each row.
+#/'
+#/' @return Numeric matrix of log-likelihood values of each distinct full ranking under each mixture component.
+#/'
 LoglikInterMSmix <- function(rho, theta, rankings) {
   n_items <- ncol(rankings)
   cn <- n_items * (n_items + 1) * (2 * n_items + 1) / 6
@@ -1797,6 +2121,19 @@ LoglikInterMSmix <- function(rho, theta, rankings) {
 
 
 # LoglikMSmix ----
+#/' Utility for the internal lik_completeMSmix
+#/'
+#/' Compute the log-likelihood value for the parameters of a mixture of Mallows models with Spearman distance on COMPLETE rankings ONLY.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param weights Numeric vector of \eqn{G} positive mixture weights.
+#/' @param rankings Integer matrix with the distinct full sequences in each row.
+#/' @param obs_freq Integer vector with the observed frequencies of each distinct full ranking.
+#/'
+#/' @return The log-likelihood value.
+#/'
 LoglikMSmix <- function(rho, theta, weights, rankings, obs_freq) {
   temp <- LoglikInterMSmix(rho = rho, theta = theta, rankings = rankings) # n_cluster*nrow(rankings) matrix
   tmp <- max(temp)
@@ -1804,8 +2141,20 @@ LoglikMSmix <- function(rho, theta, weights, rankings, obs_freq) {
   return(log_lik)
 } # scalar
 
-
 # lik_completeMSmix ----
+#/' Utility for the exported likMSmix
+#/'
+#/' Compute the (log-)likelihood for the parameters of a mixture of Mallows models with Spearman distance on COMPLETE rankings ONLY.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector of \eqn{G} non-negative component-specific precision parameters.
+#/' @param weights Numeric vector of \eqn{G} positive mixture weights.
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix of the individual full sequences in each row.
+#/' @param log Logical: whether the log-likelihood must be returned.
+#/'
+#/' @return The (log)-likelihood value.
+#/'
 lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
   n_items <- ncol(rankings)
   uniranks <- frequence(rankings)
@@ -1827,14 +2176,11 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
   return(out)
 } # scalar
 
-
-
-
 # likMSmix ----
 #' (Log-)likelihood for mixtures of Mallows models with Spearman distance
 #'
-#' @description Compute the (log-)likelihood for the parameters of a mixture of Mallow models with Spearman distance on partial rankings.
-#' Partial rankings with arbitrary missing positions are supported.
+#' @description Compute the (log-)likelihood for the parameters of a mixture of Mallows models with Spearman distance on partial rankings.
+#' Partial rankings with missing data in arbitrary positions are supported.
 #'
 #' @details
 #' The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
@@ -1850,7 +2196,7 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' @return The (log)-likelihood value.
 #'
 #' @references
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 #'
 #' Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 #'
@@ -1863,7 +2209,7 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' # corresponds to...
 #' 1/factorial(5)
 #'
-#' ## Example 2. Simulate rankings from a 2-component mixture of Mallow models
+#' ## Example 2. Simulate rankings from a 2-component mixture of Mallows models
 #' ## with Spearman distance.
 #' set.seed(12345)
 #' d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
@@ -1877,7 +2223,7 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' likMSmix(rho = fit$mod$rho, theta = fit$mod$theta, weights = fit$mod$weights,
 #'        rankings = d_sim$samples)
 #'
-#' ## Example 3. Simulate rankings from a basic Mallow model with Spearman distance.
+#' ## Example 3. Simulate rankings from a basic Mallows model with Spearman distance.
 #' set.seed(12345)
 #' d_sim <- rMSmix(sample_size = 25, n_items = 6)
 #' str(d_sim)
@@ -1896,7 +2242,7 @@ lik_completeMSmix <- function(rho, theta, weights, rankings, log = TRUE) {
 #' @export
 #'
 likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
-                   rankings, log = TRUE) {
+                     rankings, log = TRUE) {
   if (is.vector(rho)) {
     rho <- matrix(rho, nrow = 1)
   }
@@ -1942,11 +2288,10 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
   return(out)
 } # scalar
 
-
 # bicMSmix ----
 #' BIC and AIC for mixtures of Mallows models with Spearman distance
 #'
-#' @description \code{bicMSmix} and \code{aicMSmix} compute, respectively, the Bayesian Information Criterion (BIC) and the Akaike Information Criterion (AIC) for a mixture of Mallow models with Spearman distance fitted on partial rankings.
+#' @description \code{bicMSmix} and \code{aicMSmix} compute, respectively, the Bayesian Information Criterion (BIC) and the Akaike Information Criterion (AIC) for a mixture of Mallows models with Spearman distance fitted on partial rankings.
 #'
 #' @details
 #' The (log-)likelihood evaluation is performed by augmenting the partial rankings with the set of all compatible full rankings (see \code{\link{data_augmentation}}), and then the marginal likelihood is computed.
@@ -1962,7 +2307,7 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #'
 #'
 #' @references
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 #'
 #' Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 #'
@@ -1972,7 +2317,7 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #'
 #' @examples
 #'
-#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models
+#' ## Example 1. Simulate rankings from a 2-component mixture of Mallows models
 #' ## with Spearman distance.
 #' set.seed(12345)
 #' rank_sim <- rMSmix(sample_size = 50, n_items = 12, n_clust = 2)
@@ -1992,7 +2337,7 @@ likMSmix <- function(rho, theta, weights=(if(length(theta)==1) NULL),
 #'        rankings = rank_sim$samples)
 #'
 #'
-#' ## Example 2. Simulate rankings from a basic Mallow model with Spearman distance.
+#' ## Example 2. Simulate rankings from a basic Mallows model with Spearman distance.
 #' set.seed(54321)
 #' rank_sim <- rMSmix(sample_size = 50, n_items = 8, n_clust = 1)
 #' str(rank_sim)
@@ -2075,10 +2420,20 @@ aicMSmix <- function(rho, theta, weights, rankings) {
   return(aic)
 }# scalar
 
-
-
-
 # e_step ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the E-step of the EM algorithm for the estimation of the component membership probabilities.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current value of the component-specific consensus rankings in each row.
+#/' @param theta Numeric vector with the current value of the \eqn{G} component-specific precision parameters.
+#/' @param weights Numeric vector with the current value of the \eqn{G} mixture weights.
+#/' @param rankings Integer matrix with full rankings in each row, whose content depends on the type of originally observed ranking data (full or partial) and the selected EM algorithm.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return Numeric matrix with the current estimate of posterior component membership probabilities in each row.
+#/'
 e_step <- function(rho, theta, weights, rankings, cardinalities) {
   if (!is.matrix(rankings)) {
     rankings <- matrix(rankings, nrow = 1)
@@ -2088,7 +2443,8 @@ e_step <- function(rho, theta, weights, rankings, cardinalities) {
     rho <- matrix(rho, nrow = 1)
   }
 
-  temp <- log_lik_inter_spearman(rho = rho, theta = theta, rankings = rankings, cardinalities = cardinalities)
+  temp <- log_lik_inter_spearman(rho = rho, theta = theta, rankings = rankings,
+                                 cardinalities = cardinalities)
 
   z <- t(log(weights) + temp)
   z <- exp(z - apply(z, 1, max))
@@ -2099,6 +2455,16 @@ e_step <- function(rho, theta, weights, rankings, cardinalities) {
 
 
 # Mstep_weights ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the M-step of the EM algorithm for the estimation of the mixture weights.
+#/'
+#/' @keywords internal
+#/' @param N Sample size.
+#/' @param freq_hat Numeric vector with the currently estimated frequencies of rankings belonging to the \eqn{G} groups.
+#/'
+#/' @return Numeric vector with the current estimate of the \eqn{G} mixture weights.
+#/'
 Mstep_weights <- function(N, freq_hat) {
   weights <- freq_hat / N
   return(weights)
@@ -2106,6 +2472,17 @@ Mstep_weights <- function(N, freq_hat) {
 
 
 # average_mean_ranks ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the mean rank vectors needed for the estimation of the component-specific consensus rankings and precision parameters.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer matrix with full rankings in each row, whose content depends on the type of originally observed ranking data (full or partial) and the selected EM algorithm.
+#/' @param temp_prod Numeric matrix of posterior component membership probabilities multiplied by the frequencies of the distinct full rankings.
+#/' @param freq_hat Numeric vector with the currently estimated frequencies of rankings belonging to the \eqn{G} groups.
+#/'
+#/' @return Numeric \eqn{n}\eqn{\times}{x}\eqn{G} matrix with the current value of the component-specific mean rank vectors in each column.
+#/'
 average_mean_ranks <- function(rankings, temp_prod, freq_hat) {
   num <- t(temp_prod) %*% (rankings)
   amr <- t(num / freq_hat)
@@ -2114,6 +2491,15 @@ average_mean_ranks <- function(rankings, temp_prod, freq_hat) {
 
 
 # Mstep_rho ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the M-step of the EM algorithm for the estimation of the component-specific consensus rankings.
+#/'
+#/' @keywords internal
+#/' @param amr Numeric \eqn{n}\eqn{\times}{x}\eqn{G} matrix with the current value of the component-specific mean rank vectors in each column.
+#/'
+#/' @return Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current estimate of the component-specific consensus rankings.
+#/'
 Mstep_rho <- function(amr) {
   rho <- t(apply(amr, 2, rank, ties.method = "random"))
 
@@ -2124,8 +2510,17 @@ Mstep_rho <- function(amr) {
   return(rho)
 } # n_clust*n_items matrix
 
-
 # Rhs ----
+#/' Utility for the internal em_db_mix
+#/'
+#/' Compute the right-hand side of the estimation equation component-specific precision parameters.
+#/'
+#/' @keywords internal
+#/' @param rho Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the current value of the component-specific consensus rankings in each row.
+#/' @param amr Numeric \eqn{n}\eqn{\times}{x}\eqn{G} matrix with the current value of the component-specific mean rank vectors in each column.
+#/'
+#/' @return Numeric vector with the \eqn{G} sample average Spearman distances from the component-specific consensus rankings.
+#/'
 Rhs <- function(rho, amr) {
   if (is.vector(rho)) {
     rho <- matrix(rho, nrow = 1)
@@ -2140,15 +2535,41 @@ Rhs <- function(rho, amr) {
 
 
 # log_expect_spear_dist_hide ----
+#/' Utility for the internal Equation_theta
+#/'
+#/' Compute the log-expectation of the Spearman distance for the estimation of the component-specific precision parameters.
+#/'
+#/' Although this internal routine parallels the utility \code{log_expect_spear_dist}, it allows to speed up the computations of the iterative M-step for theta.
+#/'
+#/' @keywords internal
+#/' @param theta Non-negative precision parameter.
+#/' @param distances Numeric vector of all the possible Spearman distance values.
+#/' @param logcardest Numeric vector of log-frequencies corresponding to each value in \code{distances}.
+#/'
+#/' @return Either the exact or the approximate log-expected value of the Spearman distance.
+#/'
 log_expect_spear_dist_hide <- function(theta, distances, logcardest) {
   tmp <- max(logcardest + log(distances) - theta * distances)
   tmp2 <- max(logcardest - theta * distances)
-  logedist <- log(sum(exp(logcardest + log(distances) - theta * distances - tmp))) - log(sum(exp(logcardest - theta * distances - tmp2))) + tmp - tmp2
+  logedist <- log(sum(exp(logcardest + log(distances) - theta * distances - tmp))) -
+    log(sum(exp(logcardest - theta * distances - tmp2))) + tmp - tmp2
   return(logedist)
 }
 
 
 # Equation_theta ----
+#/' Utility for the internal Mstep_theta
+#/'
+#/' Compute the estimation equation for the component-specific precision parameters on the log scale.
+#/'
+#/' @keywords internal
+#/' @param theta Non-negative precision parameter.
+#/' @param n_items Number of items.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/' @param rhs Right-hand side of the estimation equation of the component-specific precision parameters.
+#/'
+#/' @return Numeric vector with the \eqn{G} differences between the (log-) expected and sample average Spearman distances from the component-specific consensus rankings.
+#/'
 Equation_theta <- function(theta, n_items, cardinalities, rhs) {
   logcardest <- cardinalities$logcard
   distances <- cardinalities$distances
@@ -2164,10 +2585,24 @@ Equation_theta <- function(theta, n_items, cardinalities, rhs) {
 
 
 # Mstep_theta ----
+#/' Utility for the internal em_db_mix, homo_bootstrapMSmix and hetero_bootstrapMSmix
+#/'
+#/' Compute the M-step of the EM algorithm for the estimation of the precision parameters.
+#/'
+#/' @keywords internal
+#/' @param theta_max Positive upper bound for the precision parameters.
+#/' @param n_items Number of items.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/' @param rhs Right-hand side of the estimation equation of the component-specific precision parameters.
+#/' @param theta_tol Positive convergence tolerance for the M-step of the precision parameters.
+#/'
+#/' @return Numeric vector with the current estimate of the \eqn{G} component-specific precision parameters.
+#/'
 Mstep_theta <- function(theta_max, n_items, cardinalities, rhs, theta_tol) {
   n_clust <- length(rhs)
   f_low <- Equation_theta(theta = 0, n_items = n_items, cardinalities = cardinalities, rhs = rhs)
-  f_upp <- Equation_theta(theta = theta_max, n_items = n_items, cardinalities = cardinalities, rhs = rhs)
+  f_upp <- Equation_theta(theta = theta_max, n_items = n_items, cardinalities = cardinalities,
+                          rhs = rhs)
 
   theta_vec <- rep(NA, n_clust)
 
@@ -2188,6 +2623,58 @@ Mstep_theta <- function(theta_max, n_items, cardinalities, rhs, theta_tol) {
 
 
 # em_db_mix ----
+#/' Utility for the exported fitMSmix
+#/'
+#/' Perform the MLE of mixtures of Mallows model with Spearman distance on full and partial rankings via EM algorithms launched from a SINGLE starting point.
+#/' Partial rankings with missing data in arbitrary positions are supported.
+#/'
+#/' @keywords internal
+#/' @param rankings_orig Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.
+#/' @param rankings Integer matrix with full rankings in each row, whose content depends on the type of originally observed ranking data (full or partial) and the selected EM algorithm.
+#/' @param item_names Character vector with the names to be used for the items.
+#/' @param freq_compl Integer vector with the (observed or estimated) frequencies of each distinct full ranking.
+#/' @param partial Logical: whether the \code{rankings_orig} matrix contains any partial sequence.
+#/' @param rankings_part If \code{partial = TRUE}, the (aggregated or non-aggregated) observed matrix of partial rankings, otherwise \code{NULL}.
+#/' @param freq_part If \code{partial = TRUE}, an integer vector with the frequencies of partial sequences in \code{rankings_part}, otherwise \code{NULL}.
+#/' @param N_partial_rows If \code{partial = TRUE} and \code{mc_em = TRUE}, the number of partial sequences in the \code{rankings_orig} matrix, otherwise \code{NULL}.
+#/' @param partial_rows If \code{partial = TRUE} and \code{mc_em = TRUE}, a logical vector indicating the rows of the \code{rankings_orig} matrix corresponding to a partial sequence, otherwise \code{NULL}.
+#/' @param missing_entries If \code{partial = TRUE} and \code{mc_em = TRUE}, a list of length \code{N_partial_rows} with labels of the unranked items in the partial sequences of the \code{rankings_orig} matrix, otherwise \code{NULL}.
+#/' @param N Sample size, corresponding to the number of rows of \code{rankings_orig}.
+#/' @param n_items Number of items.
+#/' @param n_clust Number of mixture components.
+#/' @param n_iter Maximum number of EM iterations. Defaults to 200.
+#/' @param theta_max Positive upper bound for the precision parameters. Defaults to 3.
+#/' @param init List with the starting values of the parameters to initialize the EM algorithm. This must contain three named objects, namely: 1) \code{rho}: integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the component-specific consensus rankings in each row; 2) \code{theta}: numeric vector of \eqn{G} non-negative component-specific precision parameters; 3) \code{weights}: numeric vector of \eqn{G} positive mixture weights.
+#/' @param cardinalities A list of two named objects: 1) \code{distances}: vector of all the possible Spearman distance values; 2) \code{logcard}: vector of log-frequencies corresponding to each value in \code{distances}.
+#/' @param eps Positive tolerance value for the convergence of the EM algorithm. Defaults to \eqn{10^{-6}}.
+#/' @param plot_log_lik Logical: whether the iterative log-likelihood values (based on full or augmented rankings) must be plotted.
+#/' @param plot_log_lik_part Logical: whether the iterative observed-data log-likelihood values (based on partial rankings) must be plotted.
+#/' @param aug_list If \code{partial = TRUE}, a list with elements corresponding to the matrices of full rankings compatible with the partial sequences in \code{rankings_part}, otherwise \code{NULL}.
+#/' @param aug_mat If \code{partial = TRUE}, an integer matrix of full rankings with rows given by the stacked matrices in \code{aug_list}, otherwise \code{NULL}.
+#/' @param aug_mat_vec If \code{partial = TRUE}, a character vector with elements corresponding to the rows of \code{aug_mat} converted into strings, otherwise \code{NULL}.
+#/' @param mc_em Logical: whether the Monte Carlo EM algorithm must be used for MLE on partial rankings completion. Ignored when \code{rankings} does not contain any partial sequence.
+#/' @param theta_tune Positive tuning constant affecting the precision parameters in the Monte Carlo step. Ignored when \code{rankings} does not contain any partial sequence or \code{mc_em = FALSE}.
+#/' @param theta_tol Positive convergence tolerance for the M-step of the precision parameters. Defaults to \eqn{10^{-5}}.
+#/'
+#/' @return
+#/' The \code{mod} sublist contains the following named objects:
+#/' \describe{
+#/'  \item{\code{rho}}{Integer \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the estimates of the component-specific consensus rankings in each row.}
+#/'  \item{\code{theta}}{Numeric vector with the estimates of the \eqn{G} component-specific precision parameters.}
+#/'  \item{\code{weights}}{Numeric vector with the estimates of the \eqn{G} mixture weights.}
+#/'  \item{\code{z_hat}}{Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities for the rows of the \code{rankings} matrix. Returned when \code{n_clust > 1}, otherwise \code{NULL}.}
+#/'  \item{\code{map_classification}}{\code{NULL}.}
+#/'  \item{\code{freq_compl}}{Integer vector with the (observed or estimated) frequencies of each distinct full ranking. Returned when \code{n_clust > 1}, otherwise \code{NULL}.}
+#/'  \item{\code{log_lik}}{Numeric vector of the log-likelihood values (based on full or augmented rankings) at each iteration.}
+#/'  \item{\code{best_log_lik}}{Maximized log-likelihood value (based on full or augmented rankings) of the fitted model.}
+#/'  \item{\code{bic}}{BIC value of the fitted model based on \code{best_log_lik}.}
+#/'  \item{\code{log_lik_part}}{Numeric vector of the observed-data log-likelihood values (based on partial rankings) at each iteration. Returned when \code{rankings_orig} contains some partial sequences that can be completed with \code{data_augmentation} and \code{plot_log_lik_part = TRUE}, otherwise \code{NULL}.}
+#/'  \item{\code{best_log_lik_part}}{\code{NULL}.}
+#/'  \item{\code{bic_part}}{\code{NULL}.}
+#/'  \item{\code{conv}}{Binary convergence indicator: 1 = convergence has been achieved, 0 = otherwise.}
+#/'  \item{\code{augmented_rankings}}{Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix with rankings completed through the Monte Carlo step in each row. Returned when \code{partial = TRUE} and \code{mc_em = TRUE}, otherwise \code{NULL}.}
+#/'  }
+#/'
 em_db_mix <- function(rankings_orig,
                       rankings,
                       item_names,
@@ -2236,7 +2723,8 @@ em_db_mix <- function(rankings_orig,
     }
 
     if (n_clust > 1) {
-      z_hat <- e_step(rho = rho, theta = theta, weights = weights, rankings = rankings, cardinalities = cardinalities)
+      z_hat <- e_step(rho = rho, theta = theta, weights = weights, rankings = rankings,
+                      cardinalities = cardinalities)
     }
     temp_prod <- z_hat * freq_compl
     freq_hat <- colSums(temp_prod)
@@ -2280,11 +2768,11 @@ em_db_mix <- function(rankings_orig,
         }
 
         rankings[partial_rows, ] <- t(sapply(1:N_partial_rows,
-                                           function(x)ranking_completion_hide(
-                                           part_ranking = rankings_part[partial_rows[x], ],
-                                           rho = rho_star[x, ],
-                                           items_unranked = missing_entries[[x]],
-                                           n_items = n_items)))
+                                             function(x)ranking_completion_hide(
+                                               part_ranking = rankings_part[partial_rows[x], ],
+                                               rho = rho_star[x, ],
+                                               items_unranked = missing_entries[[x]],
+                                               n_items = n_items)))
 
         if (plot_log_lik_part & !inherits(aug_list, "try-error")) {
           log_lik_partial[l] <- log_lik_db_mix_partial(
@@ -2303,10 +2791,10 @@ em_db_mix <- function(rankings_orig,
         )
 
         if (plot_log_lik_part){
-        log_lik_partial[l] <- log_lik_db_mix_partial(
-          rho = rho, theta = theta, weights = weights, aug_list = aug_list, freq_part = freq_part,
-          cardinalities = cardinalities
-        )
+          log_lik_partial[l] <- log_lik_db_mix_partial(
+            rho = rho, theta = theta, weights = weights, aug_list = aug_list, freq_part = freq_part,
+            cardinalities = cardinalities
+          )
         }
       }
     }
@@ -2332,9 +2820,9 @@ em_db_mix <- function(rankings_orig,
 
   if (plot_log_lik) {
     plot(log_lik,
-      ylab = "Log-likelihood for complete data", xlab = "Iteration",
-      main = paste0(n_clust, "-component mixture of Mallows models\nwith the Spearman distance"),
-      type = "l"
+         ylab = "Log-likelihood for complete data", xlab = "Iteration",
+         main = paste0(n_clust, "-component mixture of Mallows models\nwith the Spearman distance"),
+         type = "l"
     )
 
 
@@ -2369,15 +2857,12 @@ em_db_mix <- function(rankings_orig,
   ))
 }
 
-
-
-
 # fitMSmix ----
 #' MLE of mixtures of Mallows models with Spearman distance via EM algorithms
 #'
 #' @description
 #' Perform the MLE of mixtures of Mallows model with Spearman distance on full and partial rankings via EM algorithms.
-#' Partial rankings with arbitrary missing positions are supported.
+#' Partial rankings with missing data in arbitrary positions are supported.
 #'
 #' @details
 #' The EM algorithms are launched from \code{n_start} initializations and the best solution in terms of maximized
@@ -2388,7 +2873,7 @@ em_db_mix <- function(rankings_orig,
 #' supported up to 10 missing positions in the partial rankings.
 #'
 #' When \code{mc_em = TRUE}, the - computationally more efficient - Monte Carlo EM algorithm
-#' introduced by Crispino et al. (2024+) is implemented. In the case of a large number
+#' introduced by Crispino et al. (2025+) is implemented. In the case of a large number
 #' of censored positions and sample sizes, the \code{mc_em = TRUE} must be preferred.
 #'
 #' Regardless of the fitting method adopted for inference on partial rankings, note that
@@ -2408,10 +2893,10 @@ em_db_mix <- function(rankings_orig,
 #' @param plot_log_lik_part Logical: whether the iterative observed-data log-likelihood values (based on partial rankings) must be plotted. Ignored when \code{rankings} does not contain any partial sequence. In the presence of partial rankings, this argument is ignored when \code{comp_log_lik_part = FALSE} or \code{\link{data_augmentation}} cannot be applied. Defaults to \code{FALSE}.
 #' @param parallel Logical: whether parallelization over multiple initializations must be used. Defaults to \code{FALSE}.
 #' @param theta_max Positive upper bound for the precision parameters. Defaults to 3.
-#' @param theta_tol Positive convergence tolerance for the Mstep on theta. Defaults to \eqn{10^{-5}}.
+#' @param theta_tol Positive convergence tolerance for the M-step of the precision parameters. Defaults to \eqn{10^{-5}}.
 #' @param theta_tune Positive tuning constant affecting the precision parameters in the Monte Carlo step. Ignored when \code{rankings} does not contain any partial sequence or \code{mc_em = FALSE}. Defaults to 1.
-#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.
-#' @param item_names Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
+#' @param subset Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.
+#' @param item_names Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.
 #'
 #' @return
 #' An object of class \code{"emMSmix"}, namely a list with the following named components:
@@ -2423,7 +2908,6 @@ em_db_mix <- function(rankings_orig,
 #'  \item{\code{record}}{Best log-likelihood values sequentially achieved over the \code{n_start} initializations.}
 #'  \item{\code{em_settings}}{List of settings used to fit the model.}
 #'  \item{\code{call}}{The matched call.}
-#'
 #' }
 #'
 #' The \code{mod} sublist contains the following named objects:
@@ -2444,7 +2928,7 @@ em_db_mix <- function(rankings_orig,
 #'  }
 #'
 #' @references
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 #'
 #' Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 #'
@@ -2456,21 +2940,21 @@ em_db_mix <- function(rankings_orig,
 #' @seealso \code{\link{summary.emMSmix}}, \code{\link{plot.emMSmix}}
 #'
 #' @examples
-#' ## Example 1. Fit the 3-component mixture of Mallow models with Spearman distance
+#' ## Example 1. Fit the 3-component mixture of Mallows models with Spearman distance
 #' ## to the Antifragility dataset.
 #' r_antifrag <- ranks_antifragility[, 1:7]
 #' set.seed(123)
 #' mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
 #' mms_fit$mod$rho; mms_fit$mod$theta; mms_fit$mod$weights
 #'
-#' ## Example 2. Fit the Mallow model with Spearman distance
+#' ## Example 2. Fit the Mallows model with Spearman distance
 #' ## to simulated partial rankings through data augmentation.
 #' rank_data <- rbind(c(NA, 4, NA, 1, NA), c(NA, NA, NA, NA, 1), c(2, NA, 1, NA, 3),
 #'                    c(4, 2, 3, 5, 1), c(NA, 4, 1, 3, 2))
 #' mms_fit <- fitMSmix(rankings = rank_data, n_start = 10)
 #' mms_fit$mod$rho; mms_fit$mod$theta
 #'
-#' ## Example 3. Fit the Mallow model with Spearman distance
+#' ## Example 3. Fit the Mallows model with Spearman distance
 #' ## to the Reading genres dataset through Monte Carlo EM.
 #' top5_read <- ranks_read_genres[, 1:11]
 #' mms_fit <- fitMSmix(rankings = top5_read, n_start = 10, mc_em = TRUE)
@@ -2479,21 +2963,21 @@ em_db_mix <- function(rankings_orig,
 #' @export
 #'
 fitMSmix <- function(rankings,
-                             n_clust = 1,
-                             n_start = 1,
-                             n_iter = 200,
-                             mc_em = FALSE,
-                             eps = 10^(-6),
-                             init = list(list(rho = NULL, theta = NULL, weights = NULL))[rep(1, n_start)],
-                             plot_log_lik = FALSE,
-                             comp_log_lik_part = FALSE,
-                             plot_log_lik_part = FALSE,
-                             parallel = FALSE,
-                             theta_max = 3,
-                             theta_tol = 1e-05,
-                             theta_tune = 1,
-                             subset = NULL,
-                             item_names = NULL) {
+                     n_clust = 1,
+                     n_start = 1,
+                     n_iter = 200,
+                     mc_em = FALSE,
+                     eps = 10^(-6),
+                     init = list(list(rho = NULL, theta = NULL, weights = NULL))[rep(1, n_start)],
+                     plot_log_lik = FALSE,
+                     comp_log_lik_part = FALSE,
+                     plot_log_lik_part = FALSE,
+                     parallel = FALSE,
+                     theta_max = 3,
+                     theta_tol = 1e-05,
+                     theta_tune = 1,
+                     subset = NULL,
+                     item_names = NULL) {
 
 
   cl <- match.call()
@@ -2631,7 +3115,7 @@ fitMSmix <- function(rankings,
     }
   }
 
-    cardinalities <- suppressMessages(spear_dist_distr(n_items))
+  cardinalities <- suppressMessages(spear_dist_distr(n_items))
 
   if (!parallel) {
     mod <- vector(mode = "list", length = n_start)
@@ -2742,35 +3226,35 @@ fitMSmix <- function(rankings,
             cardinalities = cardinalities
           )
         }
-        }
+      }
 
-        tempmod <- suppressMessages(em_db_mix(
-          rankings_orig = rankings_orig,
-          rankings = rankings,
-          item_names = item_names,
-          freq_compl = freq_compl,
-          partial = partial,
-          rankings_part = rankings_part,
-          freq_part = freq_part,
-          N_partial_rows = N_partial_rows,
-          partial_rows = partial_rows,
-          missing_entries = missing_entries,
-          N = N,
-          n_items = n_items,
-          n_clust = n_clust,
-          n_iter = n_iter,
-          theta_max = theta_max,
-          init = init[[i]],
-          cardinalities = cardinalities,
-          eps = eps,
-          plot_log_lik = plot_log_lik,
-          plot_log_lik_part = plot_log_lik_part,
-          aug_list = aug_list,
-          aug_mat = aug_mat,
-          aug_mat_vec = aug_mat_vec,
-          mc_em = mc_em,
-          theta_tune = theta_tune,
-          theta_tol = theta_tol))
+      tempmod <- suppressMessages(em_db_mix(
+        rankings_orig = rankings_orig,
+        rankings = rankings,
+        item_names = item_names,
+        freq_compl = freq_compl,
+        partial = partial,
+        rankings_part = rankings_part,
+        freq_part = freq_part,
+        N_partial_rows = N_partial_rows,
+        partial_rows = partial_rows,
+        missing_entries = missing_entries,
+        N = N,
+        n_items = n_items,
+        n_clust = n_clust,
+        n_iter = n_iter,
+        theta_max = theta_max,
+        init = init[[i]],
+        cardinalities = cardinalities,
+        eps = eps,
+        plot_log_lik = plot_log_lik,
+        plot_log_lik_part = plot_log_lik_part,
+        aug_list = aug_list,
+        aug_mat = aug_mat,
+        aug_mat_vec = aug_mat_vec,
+        mc_em = mc_em,
+        theta_tune = theta_tune,
+        theta_tol = theta_tol))
 
     }
 
@@ -2784,13 +3268,13 @@ fitMSmix <- function(rankings,
 
   if (n_clust > 1) {
     if (!partial) {
-      mod$z_hat <- assign_cluster(rankings_orig = rankings_orig, z_hat = mod$z_hat)
+      mod$z_hat <- assign_cluster_full(rankings_orig = rankings_orig, z_hat = mod$z_hat)
     } else {
       if (!mc_em) {
         mod$z_hat <- assign_cluster_partial(rankings_part_orig = rankings_orig,
-                                        aug_list=aug_list,
-                                        aug_mat=aug_mat,
-                                        z_hat = mod$z_hat, freq_compl = mod$freq_compl)
+                                            aug_list=aug_list,
+                                            aug_mat=aug_mat,
+                                            z_hat = mod$z_hat, freq_compl = mod$freq_compl)
       }
     }
   }
@@ -2811,9 +3295,9 @@ fitMSmix <- function(rankings,
     mod$bic_part <- -2 * mod$best_log_lik_part + (2 * n_clust + (n_clust - 1)) * log(N)
   }
 
-  # if (!is.null(mod$augmented_rankings)){
-  #   dimnames(mod$augmented_rankings) = list(NULL, item_names)
-  # }
+  if (!is.null(mod$augmented_rankings)){
+    dimnames(mod$augmented_rankings) = list(NULL, item_names)
+  }
 
 
   em_settings <- list(rankings = rankings_orig,
@@ -2838,8 +3322,6 @@ fitMSmix <- function(rankings,
   return(out)
 }
 
-
-
 # print.emMSmix ----
 #' Print of the EM algorithm for the mixture of Mallows models with Spearman distance
 #'
@@ -2854,6 +3336,7 @@ fitMSmix <- function(rankings,
 #' @export print.emMSmix
 #' @export
 #'
+
 print.emMSmix <- function(x, ...) {
   emMSmix_out <- x
 
@@ -2862,8 +3345,8 @@ print.emMSmix <- function(x, ...) {
   }
 
   cat("\nCall:\n", paste(deparse(emMSmix_out$call), sep = "\n", collapse = "\n"),
-    "\n\n",
-    sep = ""
+      "\n\n",
+      sep = ""
   )
   n_items <- ncol(emMSmix_out$mod$rho)
   n_clust <- length(emMSmix_out$mod$weights)
@@ -2911,7 +3394,7 @@ print.emMSmix <- function(x, ...) {
 #' @seealso \code{\link{fitMSmix}}, \code{\link{plot.emMSmix}}
 #'
 #' @examples
-#' ## Example 1. Fit and summary of a 3-component mixture of Mallow models with Spearman distance
+#' ## Example 1. Fit and summary of a 3-component mixture of Mallows models with Spearman distance
 #' ## for the Antifragility dataset.
 #' r_antifrag <- ranks_antifragility[, 1:7]
 #' set.seed(123)
@@ -2979,8 +3462,8 @@ print.summary.emMSmix <- function(x, ...) {
   }
 
   cat("\nCall:\n", paste(deparse(summary.emMSmix_out$call), sep = "\n", collapse = "\n"),
-    "\n\n",
-    sep = ""
+      "\n\n",
+      sep = ""
   )
   cat("-----------------------------\n")
   cat("--- MLE of the parameters ---\n")
@@ -3014,7 +3497,7 @@ print.summary.emMSmix <- function(x, ...) {
 #' @param mar_tb Numeric: margin for the bottom and top side of the plot. Defaults to 0.2.
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
-#' @return  Produce a bump plot to compare the component-specific consensus rankings of the fitted mixture of Mallow models with Spearman distance. The size of the dots of each consensus ranking is proportional to the weight of the corresponding component. When \code{n_clust > 1}, It also returns a heatmap of the estimated coponent membership probabilities.
+#' @return A list of 2 labelled plots, namely: i) \code{bump_plot}: a bump plot comparing the component-specific consensus rankings of the fitted mixture of Mallows models with Spearman distance (the size of the dots of each consensus ranking is proportional to the weight of the corresponding component); and ii) \code{est_clust_prob}: a heatmap of the estimated component membership probabilities is returned when \code{n_clust > 1}, otherwise \code{NULL}.
 #'
 #' @references
 #'
@@ -3028,13 +3511,14 @@ print.summary.emMSmix <- function(x, ...) {
 #' @seealso \code{\link{fitMSmix}}, \code{\link{summary.emMSmix}}
 #'
 #' @examples
-#' ## Example 1. Fit a 3-component mixture of Mallow models with Spearman distance
+#' ## Example 1. Fit and plot a 3-component mixture of Mallows models with Spearman distance
 #' ## to the Antifragility dataset.
 #' r_antifrag <- ranks_antifragility[, 1:7]
 #' set.seed(123)
 #' mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
-#' plot(mms_fit)
-#'
+#' p_mms_fit <- plot(mms_fit)
+#' p_mms_fit$bump_plot()
+#' p_mms_fit$est_clust_prob()
 #'
 #' @export plot.emMSmix
 #' @export
@@ -3054,23 +3538,20 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
   items <- rep(item_names, each = n_clust)
 
   df_bump <- data.frame(x = clusters, y = positions, group = items)
-  df_bump
-
   df_bump_min <- df_bump %>% filter(x == min(x))
   df_bump_max <- df_bump %>% filter(x == max(x))
 
+  plot_list <- list()
 
-  ggp_bump <- ggplot(df_bump, aes(x = x, y = .data$y, color = .data$group)) +
+  ggp_bump_plot <- ggplot(df_bump, aes(x = x, y = .data$y, color = .data$group)) +
     geom_bump(linewidth = 1) +
     geom_point(size = rep(max_scale_w * emMSmix_out$mod$weights, n_items)) +
     geom_text(
-      data = df_bump_min,
-      aes(x = x - mar_tb, label = .data$group, y = .data$y, color = .data$group),
+      data = df_bump_min, aes(x = x - mar_tb, label = .data$group, y = .data$y, color = .data$group),
       size = 3, hjust = 1
     ) +
     geom_text(
-      data = df_bump_max,
-      aes(x = x + mar_tb, label = .data$group, y = .data$y, color = .data$group),
+      data = df_bump_max, aes(x = x + mar_tb, label = .data$group, y = .data$y, color = .data$group),
       size = 3, hjust = 0
     ) +
     scale_x_continuous(
@@ -3086,55 +3567,57 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
     ggtitle(paste("Modal orderings of the", n_clust, "groups")) +
     theme(legend.position = "none")
 
+  plot_list$bump_plot <- suppress_ggplot(ggp_bump_plot)
 
-  suppressWarnings(grid.arrange(ggp_bump, nrow = 1))
-
-  if(n_clust > 1){
-    colors_image <- colorRampPalette(brewer.pal(9, "GnBu"))(50)
-    chiplotto <- emMSmix_out$mod$z_hat[sort(emMSmix_out$mod$map_classification,index.return=TRUE)$ix,]
-    N <- ncol(chiplotto)
-    n <- nrow(chiplotto)
-    oldpar <- par(mar = c(3.1, 4.1, 2.1, 8.1))
-    on.exit(par(oldpar))
-    image(chiplotto, axes = F, main = "Estimated probabilities of cluster membership",
-          col = colors_image)
-    mtext(text = paste0("Group",1:N), side = 2, line = 0.6,
-          at = seq(0, 1, 1/(N - 1)), cex = 0.8, las = 2)
-    if(n<=100){
-      ini <- 1/(n - 1)
-      atSeq <- seq(0, 1, ini)
-      mtext(text = sort(emMSmix_out$mod$map_classification,index.return=TRUE)$ix, side = 1, line = 0.3,
-            at = atSeq, cex = 0.5, las = 2)
+  if (n_clust > 1) {
+    plot_list$est_clust_prob <- function() {
+      colors_image <- colorRampPalette(brewer.pal(9, "GnBu"))(50)
+      chiplotto <- emMSmix_out$mod$z_hat[sort(emMSmix_out$mod$map_classification, index.return = TRUE)$ix, ]
+      N <- ncol(chiplotto)
+      n <- nrow(chiplotto)
+      oldpar <- par(mar = c(3.1, 4.1, 2.1, 8.1))
+      on.exit(par(oldpar))
+      image(chiplotto, axes = FALSE, main = "Estimated probabilities of cluster membership",
+            col = colors_image)
+      mtext(text = paste0("Group", 1:N), side = 2, line = 0.6,
+            at = seq(0, 1, 1 / (N - 1)), cex = 0.8, las = 2)
+      if (n <= 100) {
+        ini <- 1 / (n - 1)
+        atSeq <- seq(0, 1, ini)
+        mtext(text = sort(emMSmix_out$mod$map_classification, index.return = TRUE)$ix,
+              side = 1, line = 0.3, at = atSeq, cex = 0.5, las = 2)
+      }
+      mtext(paste0("Sample units"), side = 1, line = 1.5, cex = 0.8)
+      oldpar2 <- par(mar = c(3.1, 4.1, 2.1, 0))
+      on.exit(par(oldpar2))
+      image.plot(chiplotto, col = colors_image, legend.only = TRUE, horizontal = FALSE)
     }
-    mtext(paste0("Sample units"), side = 1, line=1.5, cex=0.8)
-    oldpar2 <- par(mar = c(3.1, 4.1, 2.1, 0))
-    on.exit(par(oldpar2))
-    image.plot(chiplotto, col = colors_image, legend.only = TRUE, horizontal = FALSE)
+  }else{
+    plot_list$est_clust_prob <- function() NULL
   }
 
+  return(invisible(plot_list))
 }
 
-
-
 # bootstrapMSmix ----
-#' Bootstrap confidence intervals for mixtures of Mallows models with Spearman distance
+#' Bootstrap confidence intervals for the fitted mixture of Mallows models with Spearman distance
 #'
-#' @description Return the bootstrap confidence intervals for the parameters of a mixture of Mallow models with Spearman distance fitted on partial rankings.
+#' @description Return the bootstrap confidence intervals for the parameters of a mixture of Mallows models with Spearman distance fitted on partial rankings.
 #'
 #' @details
 #' When \code{n_clust = 1}, two types of bootstrap are available: 1) \code{type = "non-parametric"} (default);
 #' \code{type = "parametric"}, where the latter supports full rankings only.
 #'
 #' When \code{n_clust > 1}, two types of bootstrap are available: 1) \code{type = "soft"} (default), which is
-#' the soft-separated bootstrap (Crispino et al., 2024+) and returns confidence intervals for all
-#' the parameters of the mixture of Mallow models with Spearman distance; 2) \code{type = "separated"}, which is the separated bootstrap
+#' the soft-separated bootstrap (Crispino et al., 2025+) and returns confidence intervals for all
+#' the parameters of the mixture of Mallows models with Spearman distance; 2) \code{type = "separated"}, which is the separated bootstrap
 #' (Taushanov and Berchtold, 2019) and returns bootstrap samples for the component-specific
 #' consensus rankings and precisions.
 #'
 #' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
 #' @param n_boot Number of desired bootstrap samples. Defaults to 50.
 #' @param type Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} or \code{"parametric"} for the \eqn{G=1} case, and \code{"soft"} or \code{"separated"} for the \eqn{G>1} case. Defaults to \code{"non-parametric"} when \code{n_clust = 1} and to \code{"soft"} when \code{n_clust > 1}. See Details.
-#' @param conf_level Value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.
+#' @param conf_level Numeric: value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.
 #' @param all Logical: whether the bootstrap samples of the MLEs for all the parameters must be returned. Defaults to \code{FALSE}.
 #' @param n_start Number of starting points for the MLE on each bootstrap sample. Defaults to 10.
 #' @param parallel Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings. Defaults to \code{FALSE}.
@@ -3142,23 +3625,23 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
 #' @return
 #' An object of class \code{"bootMSmix"}, namely a list with the following named components:
 #'    \describe{
-#'      \item{\code{itemwise_ci_rho}}{The bootstrap itemwise confidence intervals for the component-specific consensus rankings.}
-#'      \item{\code{ci_boot_theta}}{The bootstrap confidence intervals for the component-specific precisions.}
-#'      \item{\code{ci_boot_weights}}{The bootstrap confidence intervals for the mixture weights. Returned when \code{n_clust > 1} and \code{type = "soft"}, otherwise \code{NULL}.}
-#'      \item{\code{boot}}{List containing all the \code{n_boot} bootstrap parameters. Returned when \code{all = TRUE}, otherwise \code{NULL}.}
+#'      \item{\code{itemwise_ci_rho}}{Character \eqn{G}\eqn{\times}{x}\eqn{n} matrix with the bootstrap itemwise confidence intervals for the component-specific consensus rankings.}
+#'      \item{\code{ci_boot_theta}}{Numeric \eqn{G}\eqn{\times}{x}\eqn{2} matrix with the bootstrap confidence intervals for the component-specific precisions.}
+#'      \item{\code{ci_boot_weights}}{Numeric \eqn{G}\eqn{\times}{x}\eqn{2} matrix with the bootstrap confidence intervals for the mixture weights. Returned when \code{n_clust > 1} and \code{type = "soft"}, otherwise \code{NULL}.}
+#'      \item{\code{boot}}{List containing all the \code{n_boot} bootstrap MLEs. Returned when \code{all = TRUE}, otherwise \code{NULL}.}
 #'    }
 #'
 #' The \code{boot} sublist contains the following named components:
 #'      \describe{
-#'      \item{\code{rho_boot}}{List of length \code{n_clust} with the bootstrap MLEs of the consensus rankings. Each element of the list is an integer \code{n_boot} \eqn{\times}{x} \code{n_items} matrix containing, in each row, the bootstrap MLEs of the consensus ranking for a specific component.}
+#'      \item{\code{rho_boot}}{List of length \code{n_clust}. Each element is an integer \code{n_boot} \eqn{\times}{x} \code{n_items} matrix with rows containing the bootstrap MLEs of a component-specific consensus ranking.}
 #'      \item{\code{theta_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{n_clust} matrix with the bootstrap MLEs of the component-specific precision parameters in each row.}
-#'      \item{\code{weights_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{n_clust} matrix with the bootstrap MLEs of the mixture weights in each row. Returned when  \code{n_clust > 1} and \code{type = "soft"}, otherwise \code{NULL}.}
+#'      \item{\code{weights_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{n_clust} matrix with the bootstrap MLEs of the mixture weights in each row. Returned when \code{n_clust > 1} and \code{type = "soft"}, otherwise \code{NULL}.}
 #'      }
 #'
 #'
 #' @references
 #'
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 #'
 #' Taushanov Z and Berchtold A (2019). Bootstrap validation of the estimated parameters in mixture models used for clustering. \emph{Journal de la société française de statistique}, \bold{160}(1).
 #'
@@ -3182,22 +3665,37 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
 #' boot_p <- bootstrapMSmix(object = fit, n_boot = 200,
 #'                        type = "parametric", all = TRUE)
 #' print(boot_p)
-#' plot(boot_p)
+#' # Plot the bootstrap estimates.
+#' p_boot_p <- plot(boot_p)
+#' p_boot_p$rho_heatmap()
+#' p_boot_p$theta_density()
 #'
 #' ## Example 2. Compute the bootstrap 95% confidence intervals for the Antifragility dataset.
-#' # Let us assume two clusters and apply soft bootstrap.
+#' # Let us assume two clusters.
 #' r_antifrag <- ranks_antifragility[, 1:7]
 #' set.seed(12345)
 #' fit <- fitMSmix(rankings = r_antifrag, n_clust = 2, n_start = 20)
+#' # Apply soft bootstrap procedure and set all = TRUE
+#' # to return the bootstrap MLEs of the consensus ranking.
 #' set.seed(12345)
 #' boot_soft <- bootstrapMSmix(object = fit, n_boot = 500,
 #'                       n_start = 20, all = TRUE)
-#' plot(boot_soft)
+#' print(boot_soft)
+#' # Plot the bootstrap estimates.
+#' p_boot_soft <- plot(boot_soft)
+#' p_boot_soft$rho_heatmap[[1]]()
+#' p_boot_soft$rho_heatmap[[2]]()
+#' p_boot_soft$theta_density()
+#' p_boot_soft$weights_density()
 #' # Apply separated bootstrap and compare results.
 #' set.seed(12345)
 #' boot_sep <- bootstrapMSmix(object = fit, n_boot = 500,
 #'                      n_start = 20, type = "separated", all = TRUE)
-#' plot(boot_sep)
+#' print(boot_sep)
+#' p_boot_sep <- plot(boot_sep)
+#' p_boot_sep$rho_heatmap[[1]]()
+#' p_boot_sep$rho_heatmap[[2]]()
+#' p_boot_sep$theta_density()
 #' print(boot_soft)
 #' print(boot_sep)
 #'
@@ -3205,12 +3703,12 @@ plot.emMSmix <- function(x, max_scale_w = 20, mar_lr = 0.4, mar_tb = 0.2, ...) {
 #' @export
 #'
 bootstrapMSmix <- function(object,
-                         n_boot = 50,
-                         type = (if(object$em_settings$n_clust == 1) "non-parametric" else "soft"),
-                         conf_level = 0.95,
-                         all = FALSE,
-                         n_start = 10,
-                         parallel = FALSE) {
+                           n_boot = 50,
+                           type = (if(object$em_settings$n_clust == 1) "non-parametric" else "soft"),
+                           conf_level = 0.95,
+                           all = FALSE,
+                           n_start = 10,
+                           parallel = FALSE) {
 
   emMSmix_out <- object
 
@@ -3251,7 +3749,7 @@ bootstrapMSmix <- function(object,
       n_iter = n_iter,
       eps = eps,
       theta_tol = theta_tol
-      )
+    )
 
   } else {
     out <- hetero_bootstrapMSmix(
@@ -3288,8 +3786,8 @@ bootstrapMSmix <- function(object,
   for (g in 1:n_clust) {
     theta_ord_sorted <- sort(out$theta_boot[, g])
     ci_theta[g, ] <- c(
-      round(theta_ord_sorted[ceiling(n_boot * alpha/2)], 3),
-      round(theta_ord_sorted[ceiling(n_boot * (1 - alpha/2))], 3)
+      theta_ord_sorted[ceiling(n_boot * alpha/2)],
+      theta_ord_sorted[ceiling(n_boot * (1 - alpha/2))]
     )
   }
   colnames(ci_theta) <- c("lower", "upper")
@@ -3301,8 +3799,8 @@ bootstrapMSmix <- function(object,
     for (g in 1:n_clust) {
       weights_ord_sorted <- sort(out$weights_boot[, g])
       ci_weights[g, ] <- c(
-        round(weights_ord_sorted[ceiling(n_boot * alpha/2)], 3),
-        round(weights_ord_sorted[ceiling(n_boot * (1 - alpha/2))], 3)
+        weights_ord_sorted[ceiling(n_boot * alpha/2)],
+        weights_ord_sorted[ceiling(n_boot * (1 - alpha/2))]
       )
     }
     colnames(ci_weights) <- c("lower", "upper")
@@ -3312,10 +3810,10 @@ bootstrapMSmix <- function(object,
   }
 
   out_boot <- list(itemwise_ci_rho = ci_rho,
-              ci_boot_theta = ci_theta,
-              ci_boot_weights = ci_weights,
-              conf_level = conf_level,
-              boot = (if (all) out else NULL))
+                   ci_boot_theta = ci_theta,
+                   ci_boot_weights = ci_weights,
+                   conf_level = conf_level,
+                   boot = (if (all) out else NULL))
 
   class(out_boot) <- "bootMSmix"
 
@@ -3326,20 +3824,49 @@ bootstrapMSmix <- function(object,
 }
 
 # homo_bootstrapMSmix ----
+#/' Utility for the exported bootstrapMSmix
+#/'
+#/' Return the bootstrap MLEs for the parameters of a Mallows model with Spearman distance fitted on partial rankings (homogeneous case \eqn{G=1}).
+#/'
+#/' Two types of bootstrap are available: 1) \code{type = "non-parametric"} (default); \code{type = "parametric"}, where the latter supports full rankings only.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.
+#/' @param n_boot Number of desired bootstrap samples.
+#/' @param type Character indicating which bootstrap method must be used. Available options are: \code{"non-parametric"} (default) or \code{"parametric"}.
+#/' @param rho_mle Integer \eqn{1}\eqn{\times}{x}\eqn{n} matrix with the MLE of the consensus ranking.
+#/' @param theta_mle Numeric: the MLE of the precision parameter.
+#/' @param n_start Number of starting points for the MLE on each bootstrap sample.
+#/' @param mc_em Logical: whether the Monte Carlo EM algorithm must be used for MLE on partial rankings completion. Ignored when \code{rankings} does not contain any partial sequence.
+#/' @param item_names Character vector with the names to be used for the items.
+#/' @param parallel Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings.
+#/' @param theta_max Positive upper bound for the precision parameters.
+#/' @param theta_tune Positive tuning constant affecting the precision parameters in the Monte Carlo step.
+#/' @param n_iter Maximum number of EM iterations.
+#/' @param eps Positive tolerance value for the convergence of the EM algorithm.
+#/' @param theta_tol Positive convergence tolerance for the M-step of the precision parameters.
+#/'
+#/' @return
+#/' A list with the following named components:
+#/'      \describe{
+#/'      \item{\code{rho_boot}}{List of length 1 with the bootstrap MLEs of the consensus ranking collected in the rows of an integer \code{n_boot} \eqn{\times}{x} \code{n_items} matrix.}
+#/'      \item{\code{theta_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{1} matrix with the bootstrap MLEs of the precision parameter in each row.}
+#/'      }
+#/'
 homo_bootstrapMSmix <- function(rankings,
-                              n_boot,
-                              type,
-                              rho_mle,
-                              theta_mle,
-                              n_start,
-                              mc_em,
-                              item_names,
-                              parallel,
-                              theta_max,
-                              theta_tune,
-                              n_iter,
-                              eps,
-                              theta_tol) {
+                                n_boot,
+                                type,
+                                rho_mle,
+                                theta_mle,
+                                n_start,
+                                mc_em,
+                                item_names,
+                                parallel,
+                                theta_max,
+                                theta_tune,
+                                n_iter,
+                                eps,
+                                theta_tol) {
 
 
   if (!(type%in%c("parametric","non-parametric"))){
@@ -3405,7 +3932,7 @@ homo_bootstrapMSmix <- function(rankings,
           n_clust = 1,
           rho = rho_mle,
           theta = theta_mle,
-          mh = TRUE
+          mh = T
         )$samples)
 
         rho_boot[[1]][h, ] <- rank(colMeans(Rstar), ties.method = "random")
@@ -3429,20 +3956,54 @@ homo_bootstrapMSmix <- function(rankings,
 
 
 # hetero_bootstrapMSmix ----
+#/' Utility for the exported bootstrapMSmix
+#/'
+#/' Return the bootstrap MLEs for the parameters of a mixture of Mallows model with Spearman distance fitted on partial rankings (heterogeneous case \eqn{G>1}).
+#/'
+#/' Two types of bootstrap are available: 1) \code{type = "soft"} (default), which is
+#/' the soft-separated bootstrap (Crispino et al., 2025+) and returns confidence intervals for all
+#/' the parameters of the mixture of Mallows models with Spearman distance; 2) \code{type = "separated"}, which is the separated bootstrap
+#/' (Taushanov and Berchtold, 2019) and returns bootstrap samples for the component-specific
+#/' consensus rankings and precisions.
+#/'
+#/' @keywords internal
+#/' @param rankings Integer \eqn{N}\eqn{\times}{x}\eqn{n} matrix or data frame with partial rankings in each row. Missing positions must be coded as \code{NA}.
+#/' @param n_boot Number of desired bootstrap samples.
+#/' @param type Character indicating which bootstrap method must be used. Available options are: \code{"soft"} (default) or \code{"separated"}.
+#/' @param z_hat Numeric \eqn{N}\eqn{\times}{x}\eqn{G} matrix of the estimated posterior component membership probabilities.
+#/' @param classification Integer vector of \eqn{N} mixture component memberships based on the MAP allocation from the \code{z_hat} matrix.
+#/' @param n_start Number of starting points for the MLE on each bootstrap sample.
+#/' @param mc_em Logical: whether the Monte Carlo EM algorithm must be used for MLE on partial rankings completion. Ignored when \code{rankings} does not contain any partial sequence.
+#/' @param item_names Character vector with the names to be used for the items.
+#/' @param parallel Logical: whether parallelization over multiple initializations of the EM algorithm must be used. Used when \code{rankings} contains some partial rankings.
+#/' @param theta_max Positive upper bound for the precision parameters.
+#/' @param theta_tune Positive tuning constant affecting the precision parameters in the Monte Carlo step.
+#/' @param n_iter Maximum number of EM iterations.
+#/' @param eps Positive tolerance value for the convergence of the EM algorithm.
+#/' @param theta_tol Positive convergence tolerance for the M-step of the precision parameters.
+#/'
+#/' @return
+#/' A list with the following named components:
+#/'      \describe{
+#/'      \item{\code{rho_boot}}{List of length \code{n_clust}. Each element is an integer \code{n_boot} \eqn{\times}{x} \code{n_items} matrix with rows containing the bootstrap MLEs of a component-specific consensus ranking.}
+#/'      \item{\code{theta_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{n_clust} matrix with the bootstrap MLEs of the component-specific precision parameters in each row.}
+#/'      \item{\code{weights_boot}}{Numeric \code{n_boot}\eqn{\times}{x} \code{n_clust} matrix with the bootstrap MLEs of the mixture weights in each row. Returned when \code{type = "soft"}, otherwise \code{NULL}.}
+#/'      }
+#/'
 hetero_bootstrapMSmix <- function(rankings,
-                                n_boot,
-                                type,
-                                z_hat,
-                                classification,
-                                n_start,
-                                mc_em,
-                                item_names,
-                                parallel,
-                                theta_max,
-                                theta_tune,
-                                n_iter,
-                                eps,
-                                theta_tol) {
+                                  n_boot,
+                                  type,
+                                  z_hat,
+                                  classification,
+                                  n_start,
+                                  mc_em,
+                                  item_names,
+                                  parallel,
+                                  theta_max,
+                                  theta_tune,
+                                  n_iter,
+                                  eps,
+                                  theta_tol) {
 
 
   if (!(type%in%c("soft","separated"))){
@@ -3534,7 +4095,7 @@ hetero_bootstrapMSmix <- function(rankings,
             n_iter = n_iter,
             eps = eps,
             theta_tol = theta_tol
-            ))
+          ))
           rho_boot[[g]][h, ] <- FIT$mod$rho
           theta_boot[h, g] <- FIT$mod$theta
         } else {
@@ -3555,7 +4116,7 @@ hetero_bootstrapMSmix <- function(rankings,
 }
 
 # print.bootMSmix ----
-#' Print of the bootstrap confidence intervals for mixtures of Mallows models with Spearman distance
+#' Print of the bootstrap confidence intervals for the fitted mixture of Mallows models with Spearman distance
 #'
 #' @description \code{print} method for class \code{"bootMSmix"}.
 #'
@@ -3583,20 +4144,21 @@ print.bootMSmix <- function(x, ...) {
   cat("\n")
   cat(paste0("Bootstrap ", 100*bootMSmix_out$conf_level, "%CIs for the precisions:\n"))
   cat("\n")
-  print(bootMSmix_out$ci_boot_theta)
+  print(round(bootMSmix_out$ci_boot_theta,3))
   cat("\n")
+  if(!is.null(bootMSmix_out$ci_boot_weights)){
   cat("\n")
   cat(paste0("Bootstrap ", 100*bootMSmix_out$conf_level, "%CIs for the mixture weights:\n"))
   cat("\n")
-  print(bootMSmix_out$ci_boot_weights)
+  print(round(bootMSmix_out$ci_boot_weights,3))
   cat("\n")
+  }
   invisible(x)
 
 }
 
-
 # plot.bootMSmix ----
-#' Plot the bootstrap confidence intervals of the consensus rankings estimates
+#' Plot the bootstrap estimates for the fitted mixture of Mallows models with Spearman distance
 #'
 #' @description \code{plot} method for class \code{"bootMSmix"}.
 #'
@@ -3605,9 +4167,7 @@ print.bootMSmix <- function(x, ...) {
 #' @param ... Further arguments passed to or from other methods (not used).
 #'
 #' @return
-#' For the component-specific bootstrap consensus ranking estimates, a heatmap is returned.
-#'
-#' For the component-specific precisions and weights (for the latter when \eqn{G > 1}), a kernel density plot is returned.
+#' A list of 3 labelled plots, namely: i) \code{rho_heatmap}: a heatmap for the component-specific bootstrap consensus ranking estimates (when \code{n_clust > 1}, this is in turn a list of heatmaps for each consensus ranking estimate); ii) \code{theta_density}: a kernel density plot for the component-specific bootstrap precision estimates; iii) \code{weights_density}: a kernel density plot for the bootstrap mixture weight estimates is returned when \code{n_clust > 1} and the object \code{x} was obtained from the \code{bootstrapMSmix} routine with the argument \code{type = "soft"}, otherwise \code{NULL}.
 #'
 #' @rdname bootstrapMSmix
 #'
@@ -3627,172 +4187,145 @@ plot.bootMSmix <- function(x, ...) {
   }
 
   n_clust <- nrow(bootMSmix_out$ci_boot_theta)
+  plot_list <- list()
 
-  oldpar <- par(mfrow = c(1, 1))
-  on.exit(par(oldpar))
-
-  if(n_clust == 1){
-
-    ### HEATMAP rho
-    colors_image <- colorRampPalette(brewer.pal(9, "YlOrRd"))(50)
-    chiplotto <- itemwise_rank_marginals(rankings = bootMSmix_out$boot$rho_boot[[1]])
-    N <- dim(chiplotto)[2]
-    n <- dim(chiplotto)[1]
-    oldpar2 <- par(mar=c(3.1,9.1,2.1,8.1))
-    on.exit(par(oldpar2))
-    image(chiplotto, axes=F,main=paste0("Bootstrap MLEs of the consensus ranking"),col=colors_image)
-    mtext(text=colnames(chiplotto), side=2, line=0.6, at=seq(0,1,1/(N-1)), cex=0.8,las=2)
-    ini<-1/(n-1)
-    atSeq<-seq(0,1,ini)
-    mtext(text=c(rownames(chiplotto)), side=1,
-          line=0.3, at=seq(0,1,ini), cex=0.8,las=2)
-    oldpar3 <- par(mar=c(3.1,9.1,2.1,0))
-    on.exit(par(oldpar3))
-    image.plot(chiplotto, col=colors_image,legend.only=TRUE, horizontal = FALSE)
-
-
-    #density theta
-    den <- density(bootMSmix_out$boot$theta_boot[,1])
-    oldpar4 <- par(mar=rep(4,4))
-    on.exit(par(oldpar4))
-    plot(den, lwd = 2,
-         col = "darkblue",
-         main = "Bootstrap MLEs of the precision parameter",
-         xlab = expression(theta), ylab = "Density")
-    polygon(den, col = adjustcolor("darkblue",0.5))
-    legend('topright',legend=(1:n_clust),title='Component',
-           fill=adjustcolor("darkblue",0.5),bty='n')
-
-
-  }else{
-
-    den <- list()
-    dx <- dy <- NULL
-
-    for(g in 1:n_clust){
-
-      den[[g]] <- density(bootMSmix_out$boot$theta_boot[,g])
-      dx <-c(dx,den[[g]]$x)
-      dy <-c(dy,den[[g]]$y)
-
-
-      ### HEATMAP rho
+  if (n_clust == 1) {
+    plot_list$rho_heatmap <- function() {
       colors_image <- colorRampPalette(brewer.pal(9, "YlOrRd"))(50)
-      chiplotto <- itemwise_rank_marginals(rankings = bootMSmix_out$boot$rho_boot[[g]])
+      chiplotto <- itemwise_rank_marginals(rankings = bootMSmix_out$boot$rho_boot[[1]])
       N <- dim(chiplotto)[2]
       n <- dim(chiplotto)[1]
-      oldpar2 <- par(mar=c(3.1,9.1,2.1,8.1))
-      on.exit(par(oldpar2))
-      image(chiplotto, axes=F,main=paste("Bootstrap MLEs of the consensus ranking for component",g),col=colors_image)
-      mtext(text=colnames(chiplotto), side=2, line=0.6, at=seq(0,1,1/(N-1)), cex=0.8,las=2)
-      ini<-1/(n-1)
-      atSeq<-seq(0,1,ini)
-      mtext(text=c(rownames(chiplotto)), side=1,
-            line=0.3, at=seq(0,1,ini), cex=0.8,las=2)
-      oldpar3 <- par(mar=c(3.1,9.1,2.1,0))
-      on.exit(par(oldpar3))
-      image.plot(chiplotto, col=colors_image,legend.only=TRUE, horizontal = FALSE)
+      oldpar <- par(mar = c(3.1, 9.1, 2.1, 8.1))
+      on.exit(par(oldpar))
+      image(chiplotto, axes = FALSE, main = "Bootstrap MLEs of the consensus ranking", col = colors_image)
+      mtext(text = colnames(chiplotto), side = 2, line = 0.6, at = seq(0, 1, 1 / (N - 1)), cex = 0.8, las = 2)
+      mtext(text = rownames(chiplotto), side = 1, line = 0.3, at = seq(0, 1, 1 / (n - 1)), cex = 0.8, las = 2)
+      image.plot(chiplotto, col = colors_image, legend.only = TRUE, horizontal = FALSE)
+    }
 
+    plot_list$theta_density <- function() {
+      den <- density(bootMSmix_out$boot$theta_boot[,1])
+      oldpar4 <- par(mar=rep(4,4))
+      on.exit(par(oldpar4))
+      plot(den, lwd = 2,
+           col = "darkblue",
+           main = "Bootstrap MLEs of the precision parameter",
+           xlab = expression(theta), ylab = "Density")
+      polygon(den, col = adjustcolor("darkblue",0.5))
+      legend('topright',legend=(1:n_clust),title='Component',
+             fill=adjustcolor("darkblue",0.5),bty='n')
+    }
+
+    plot_list$weights_density <- function() NULL
+
+  } else {
+
+    plot_list$rho_heatmap <- list()
+
+    for (g in 1:n_clust) {
+      # Heatmap function for each cluster
+      plot_list$rho_heatmap[[g]] <- local({
+        g_fixed <- g  # Create a local variable to store `g`
+        force(g_fixed) # Ensure `g_fixed` is captured at function creation
+
+        function() {
+          colors_image <- colorRampPalette(brewer.pal(9, "YlOrRd"))(50)
+          chiplotto <- itemwise_rank_marginals(rankings = bootMSmix_out$boot$rho_boot[[g_fixed]])
+          N <- dim(chiplotto)[2]
+          n <- dim(chiplotto)[1]
+          oldpar <- par(mar = c(3.1, 9.1, 2.1, 8.1))
+          on.exit(par(oldpar))
+          image(chiplotto, axes = FALSE, main = paste("Bootstrap MLEs of consensus ranking for component", g_fixed), col = colors_image)
+          mtext(text = colnames(chiplotto), side = 2, line = 0.6, at = seq(0, 1, 1 / (N - 1)), cex = 0.8, las = 2)
+          mtext(text = rownames(chiplotto), side = 1, line = 0.3, at = seq(0, 1, 1 / (n - 1)), cex = 0.8, las = 2)
+          image.plot(chiplotto, col = colors_image, legend.only = TRUE, horizontal = FALSE)
+        }
+      })
 
     }
 
-    #theta
-    oldpar4 <- par(mar=rep(4,4))
-    on.exit(par(oldpar4))
-    ramp <- colorRamp(c("darkblue","darkgreen","yellow"))
-    ramp2 <- rgb( ramp(seq(0, 1, length.out = n_clust)), maxColorValue = 255)
-    plot(den[[1]], lwd = 2,
-         col = ramp2[1],ylim=range(dy),xlim=range(dx),
-         main = "Bootstrap MLEs of the precision parameters",
-         xlab = expression(theta), ylab = "Density")
-    polygon(den[[1]], col = adjustcolor(ramp2[1],0.5))
-    for(g in 2:n_clust){
-      lines(den[[g]], lwd = 2, col = ramp2[g])
-      polygon(den[[g]], col = adjustcolor(ramp2[g],0.5))
-    }
-    legend('topright',legend=(1:n_clust),title='Component',
-           fill=adjustcolor(ramp2,0.5),bty='n')
-
-    #weights
-    if(!is.null(bootMSmix_out$boot$weights_boot)){
-
-      den2 <- list()
-      dx2 <- dy2 <- NULL
+    # Precisions density plot
+    plot_list$theta_density <- function() {
+      den <- list()
+      dx <- dy <- NULL
 
       for(g in 1:n_clust){
-        den2[[g]] <- density(bootMSmix_out$boot$weights_boot[,g])
-        dx2 <-c(dx2,den2[[g]]$x)
-        dy2 <-c(dy2,den2[[g]]$y)
+        den[[g]] <- density(bootMSmix_out$boot$theta_boot[,g])
+        dx <-c(dx,den[[g]]$x)
+        dy <-c(dy,den[[g]]$y)
+      }
+      oldpar4 <- par(mar=rep(4,4))
+      on.exit(par(oldpar4))
+      ramp <- colorRamp(c("darkblue","darkgreen","yellow"))
+      ramp2 <- rgb( ramp(seq(0, 1, length.out = n_clust)), maxColorValue = 255)
+      plot(den[[1]], lwd = 2,
+           col = ramp2[1],ylim=range(dy),xlim=range(dx),
+           main = "Bootstrap MLEs of the precision parameters",
+           xlab = expression(theta), ylab = "Density")
+      polygon(den[[1]], col = adjustcolor(ramp2[1],0.5))
+      for(g in 2:n_clust){
+        lines(den[[g]], lwd = 2, col = ramp2[g])
+        polygon(den[[g]], col = adjustcolor(ramp2[g],0.5))
+      }
+      legend('topright',legend=(1:n_clust),title='Component',
+             fill=adjustcolor(ramp2,0.5),bty='n')
+    }
+
+    # Mixture weights density plot
+    if (!is.null(bootMSmix_out$boot$weights_boot)) {
+      plot_list$weights_density <- function() {
+        den2 <- list()
+        dx2 <- dy2 <- NULL
+
+        for(g in 1:n_clust){
+          den2[[g]] <- density(bootMSmix_out$boot$weights_boot[,g])
+          dx2 <-c(dx2,den2[[g]]$x)
+          dy2 <-c(dy2,den2[[g]]$y)
+        }
+
+        oldpar5 <- par(mar=rep(4,4))
+        on.exit(par(oldpar5))
+        ramp <- colorRamp(c("darkblue","darkgreen","yellow"))
+        ramp2 <- rgb( ramp(seq(0, 1, length.out = n_clust)), maxColorValue = 255)
+        plot(den2[[1]], lwd = 2,
+             col = ramp2[1],ylim=range(dy2),xlim=range(dx2),
+             main = "Bootstrap MLEs of the mixture weights",
+             xlab = "weights", ylab = "Density")
+        polygon(den2[[1]], col = adjustcolor(ramp2[1],0.5))
+        for(g in 2:n_clust){
+          lines(den2[[g]], lwd = 2, col = ramp2[g])
+          polygon(den2[[g]], col = adjustcolor(ramp2[g],0.5))
+        }
+        legend('topright',legend=(1:n_clust),title='Component',
+               fill=adjustcolor(ramp2,0.5),bty='n')
       }
 
-    oldpar5 <- par(mar=rep(4,4))
-    on.exit(par(oldpar5))
-    ramp <- colorRamp(c("darkblue","darkgreen","yellow"))
-    ramp2 <- rgb( ramp(seq(0, 1, length.out = n_clust)), maxColorValue = 255)
-    plot(den2[[1]], lwd = 2,
-         col = ramp2[1],ylim=range(dy2),xlim=range(dx2),
-         main = "Bootstrap MLEs of the mixture weights",
-         xlab = "weights", ylab = "Density")
-    polygon(den2[[1]], col = adjustcolor(ramp2[1],0.5))
-    for(g in 2:n_clust){
-      lines(den2[[g]], lwd = 2, col = ramp2[g])
-      polygon(den2[[g]], col = adjustcolor(ramp2[g],0.5))
+    }else{
+      plot_list$weights_density <- function() NULL
     }
-    legend('topright',legend=(1:n_clust),title='Component',
-           fill=adjustcolor(ramp2,0.5),bty='n')
-
-}
 
   }
 
-
+  return(invisible(plot_list))
 }
 
-# confintMSmix ----
-#' Hessian-based confidence intervals for mixtures of Mallows models with Spearman distance
-#'
-#' @description Return the Hessian-based confidence intervals of the continuous parameters of a mixture of Mallow models with Spearman distance fitted to full rankings, namely the component-specific precisions and weights.
-#'
-#' @details The current implementation of the hessian-based confidence intervals assumes that the observed rankings are complete.
-#'
-#' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
-#' @param conf_level Value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.
-#'
-#'
-#' @return A list with the following named components:
-#'
-#' \item{\code{ci_theta}}{The confidence intervals for the precision parameters.}
-#' \item{\code{ci_weights}}{The confidence intervals for the mixture weights. Returned when \eqn{G>1}.}
-#'
-#' @references
-#' Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
-#'
-#' Marden JI (1995). Analyzing and modeling rank data. \emph{Monographs on Statistics and Applied Probability} (64). Chapman & Hall, ISSN: 0-412-99521-2. London.
-#'
-#' Mclachlan G and Peel D (2000). Finite Mixture Models. \emph{Vol. 299. New York: Wiley}.
-#'
-#'
-#' @examples
-#'
-#' ## Example 1. Simulate rankings from a 2-component mixture of Mallow models
-#' ## with Spearman distance.
-#' set.seed(123)
-#' d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
-#' rankings <- d_sim$samples
-#' # Fit the basic Mallows model with Spearman distance.
-#' set.seed(123)
-#' fit1 <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
-#' # Compute the hessian-based confidence intervals for the MLEs of the precision.
-#' confintMSmix(object = fit1)
-#' # Fit the true model.
-#' set.seed(123)
-#' fit2 <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
-#' # Compute the hessian-based confidence intervals for the MLEs of the weights and precisions.
-#' confintMSmix(object = fit2)
-#'
-#' @export
-#'
-confintMSmix <- function(object, conf_level = 0.95){
+# seMSmix ----
+#/' Utility for the exported confintMSmix
+#/'
+#/' Return the (asymptotic) standard errors of the continuous parameters (component-specific precisions and weights) of a mixture of Mallows models with Spearman distance fitted to full rankings.
+#/'
+#/' The current implementation of the standard errors assumes that the observed rankings are complete.
+#/'
+#/' @keywords internal
+#/' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
+#/'
+#/' @return A list with the following named components:
+#/' \describe{
+#/'    \item{\code{se_theta}}{Numeric vector with the \eqn{G} standard errors of the component-specific precision parameters.}
+#/'    \item{\code{se_weights}}{Numeric vector with the standard errors for the mixture weights (when \eqn{G>1}), otherwise \code{NULL}.}
+#/' }
+#/'
+seMSmix <- function(object){
   emMSmix_out <- object
   if (!is(emMSmix_out, "emMSmix")) {
     stop("The function requires an object of S3 class 'emMSmix' as its first argument.\n")
@@ -3800,56 +4333,232 @@ confintMSmix <- function(object, conf_level = 0.95){
   if (emMSmix_out$partial_data) {
     stop("The function assumes that the fitted dataset is composed of full rankings only.\n")
   }
-  n_items <- ncol(emMSmix_out$mod$rho)
+
+  rankings <- emMSmix_out$em_settings$rankings
+  N <- nrow(rankings)
+
+  rho_mle <- emMSmix_out$mod$rho
+  n_items <- ncol(rho_mle)
+  dist_mat <- apply(rho_mle,1,spear_dist,rankings=rankings) # N vector (when n_clust=1) or N*n_clust matrix (when n_clust>1)
+
   theta_mle <- emMSmix_out$mod$theta
   n_clust <- length(theta_mle)
-  if (n_clust == 1) {
-    rankings <- emMSmix_out$em_settings$rankings
-    N <- nrow(rankings)
-  }else {
-    N <- colSums(emMSmix_out$mod$z_hat)
+  expect_dist <- sapply(theta_mle,expected_spear_dist, n_items=n_items, log = FALSE) # n_clust vector
+
+  if (n_clust == 1){
+    # Score function for theta
+    score_theta <- score_funct <- -(dist_mat-expect_dist) # N vector
+
+  }else{
+    z_hat_mle <- emMSmix_out$mod$z_hat
+    # Score function for theta
+    score_theta <- -z_hat_mle*(dist_mat-matrix(expect_dist, nrow=N, ncol=n_clust, byrow=TRUE)) # N*n_clust matrix
+    # Score function for weights
+    weights_mle <- emMSmix_out$mod$weights
+    score_weights <- t(t(z_hat_mle)/weights_mle)[,-n_clust,drop=FALSE] # N*(n_clust-1) matrix
+    score_funct <- cbind(score_theta, score_weights) # N times 2*n_clust-1 matrix
+
   }
+
+  # Approximate empirical information matrix
+  approx_emp_info <- t(score_funct)%*%score_funct # 1 times 1 matrix (when n_clust=1) 2*n_clust-1 times 2*n_clust-1 matrix (when n_clust>1)
+
+  # SE
+  var_cov_mat <- solve(approx_emp_info)
+  var_vec <- diag(var_cov_mat)
+  approx_se <- sqrt(var_vec)
+  se_theta <- approx_se[1:n_clust]
+
+  if (n_clust > 1){
+    if (n_clust == 2){
+      se_weights <- rep(approx_se[-c(1:n_clust)],n_clust)
+    }else{
+      var_cov_weights_mat <- var_cov_mat[-c(1:n_clust),-c(1:n_clust)]
+      cov_weights <- var_cov_mat[lower.tri(var_cov_weights_mat)]
+      se_weights <- c(approx_se[-c(1:n_clust)],
+                      sqrt(sum(diag(var_cov_weights_mat))+2*sum(cov_weights)))
+    }
+    }
+
+  out <- list(se_theta = se_theta,
+              se_weights = (if (n_clust > 1) se_weights else NULL))
+
+  return(out)
+
+}
+# list with: a positive scalar and a NULL element (when n_clust=1) or
+#            two vectors of length n_clust (when n_clust>1)
+
+
+# confintMSmix ----
+#' Asymptotic confidence intervals for the fitted mixture of Mallows models with Spearman distance
+#'
+#' @description Return the asymptotic confidence intervals of the continuous parameters (component-specific precisions and weights) of a mixture of Mallows models with Spearman distance fitted to full rankings.
+#'
+#' @details The current implementation of the asymptotic confidence intervals assumes that the observed rankings are complete.
+#'
+#' @param object An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
+#' @param conf_level Numeric: value in the interval (0,1] indicating the desired confidence level of the interval estimates. Defaults to 0.95.
+#'
+#' @return An object of class \code{"ciMSmix"}, namely a list with the following named components:
+#' \describe{
+#' \item{\code{ci_theta}}{Numeric \eqn{G}\eqn{\times}{x}\eqn{2} matrix with the confidence intervals of the component-specific precision parameters in each row.}
+#' \item{\code{ci_weights}}{Numeric \eqn{G}\eqn{\times}{x}\eqn{2} matrix with the confidence intervals of the mixture weights in each row (when \eqn{G>1}), otherwise \code{NULL}.}
+#' }
+#'
+#' @references
+#' Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+#'
+#' Marden JI (1995). Analyzing and modeling rank data. \emph{Monographs on Statistics and Applied Probability} (64). Chapman & Hall, ISSN: 0-412-99521-2. London.
+#'
+#' McLachlan G and Peel D (2000). Finite Mixture Models. \emph{Wiley Series in Probability and Statistics}, John Wiley & Sons.
+#'
+#'
+#' @examples
+#'
+#' ## Example 1. Simulate rankings from a 2-component mixture of Mallows models
+#' ## with Spearman distance.
+#' set.seed(123)
+#' d_sim <- rMSmix(sample_size = 75, n_items = 8, n_clust = 2)
+#' rankings <- d_sim$samples
+#' # Fit the basic Mallows model with Spearman distance.
+#' set.seed(123)
+#' fit1 <- fitMSmix(rankings = rankings, n_clust = 1, n_start = 10)
+#' # Compute the asymptotic confidence intervals for the MLEs of the precision.
+#' ci95_fit1 <- confintMSmix(object = fit1)
+#' print(ci95_fit1)
+#' # Fit the true model.
+#' set.seed(123)
+#' fit2 <- fitMSmix(rankings = rankings, n_clust = 2, n_start = 10)
+#' # Compute the asymptotic confidence intervals for the MLEs of the weights and precisions.
+#' ci95_fit2 <- confintMSmix(object = fit2)
+#' print(ci95_fit2)
+#'
+#' @export
+#'
+confintMSmix <- function(object, conf_level = 0.95){
+
+  emMSmix_out <- object
+  if (!is(emMSmix_out, "emMSmix")) {
+    stop("The function requires an object of S3 class 'emMSmix' as its first argument.\n")
+  }
+  if (emMSmix_out$partial_data) {
+    stop("The function assumes that the fitted dataset is composed of full rankings only.\n")
+  }
+
+  theta_mle <- emMSmix_out$mod$theta
+  n_clust <- length(theta_mle)
+
+  SE <- seMSmix(object=object)
+
   z_level <- qnorm((1 - conf_level)/2, lower.tail = FALSE)
-  se_theta <- ci_t_l <- ci_t_u <- rep(NA, n_clust)
-  for (g in 1:n_clust) {
-    Vardist <- var_spear_dist(theta_mle[g], n_items, log = FALSE)
-    se_theta[g] <- 1/sqrt(N[g] * Vardist)
-    ci_t_l[g] <- max(0, round(theta_mle[g] - (z_level * se_theta[g]),
-                              3))
-    ci_t_u[g] <- round(theta_mle[g] + (z_level * se_theta[g]),
-                       3)
+
+  # CI for theta
+  ci_t_l <- theta_mle - z_level * SE$se_theta
+  if(any(ci_t_l<0)){
+    #    warning(paste0("Negative lower bound of the ",100 * conf_level ,"%CI for some precisions"))
+    neg_ci_t_l <- which(ci_t_l<0)
+    ci_t_l[neg_ci_t_l] <- 0
   }
+
+  ci_t_u <- theta_mle + z_level * SE$se_theta
+
   ci_theta <- cbind(ci_t_l, ci_t_u)
   colnames(ci_theta) <- c("lower", "upper")
   rownames(ci_theta) <- paste0("Group", 1:n_clust)
+
+  # CI for weights
   if (n_clust > 1) {
     weights_mle <- emMSmix_out$mod$weights
-    se_w <- 1/sqrt((N/weights_mle^2)[-n_clust] + (N/weights_mle^2)[n_clust])
-    se_w <- c(se_w, sqrt(sum(se_w[1:(n_clust - 1)]^2)))
-    ci_w_l <- weights_mle - (z_level * se_w/sqrt(N))
-    ci_w_u <- weights_mle + (z_level * se_w/sqrt(N))
+    ci_w_l <- weights_mle - z_level * SE$se_weights
+    ci_w_u <- weights_mle + z_level * SE$se_weights
     ci_weights <- cbind(ci_w_l, ci_w_u)
     ci_weights[ci_weights < 0] <- 0
     ci_weights[ci_weights > 1] <- 1
     colnames(ci_weights) <- c("lower", "upper")
     rownames(ci_weights) <- paste0("Group", 1:n_clust)
-    ci_weights <- round(ci_weights, 3)
   }
-  cat("\n")
-  cat(paste0("Hessian-based ",100 * conf_level , "%CIs for the precisions:\n"))
-  cat("\n")
-  print(ci_theta)
-  cat("\n")
-  if (n_clust > 1){
-    cat("\n")
-    cat(paste0("Hessian-based ",100 * conf_level, "%CIs for the mixture weights:\n"))
-    cat("\n")
-    print(ci_weights)
-    cat("\n")
+
+  out <- list(ci_theta = ci_theta,
+              ci_weights = (if (n_clust > 1) ci_weights else NULL),
+              conf_level = conf_level)
+
+  class(out) <- "ciMSmix"
+
+  return(out)
+
+}# list with: a 1*2 matrix and a NULL element (when n_clust=1) or
+#            two n_clust*2 matrices (when n_clust>1)
+
+
+# print.ciMSmix ----
+#' Print of the asymptotic confidence intervals for the fitted mixture of Mallows models with Spearman distance
+#'
+#' @description \code{print} method for class \code{"ciMSmix"}.
+#'
+#'
+#' @param x An object of class \code{"ciMSmix"} returned by \code{\link{confintMSmix}}.
+#' @param ... Further arguments passed to or from other methods (not used).
+#'
+#' @rdname confintMSmix
+#'
+#' @export print.ciMSmix
+#' @export
+#'
+print.ciMSmix <- function(x, ...) {
+
+  confintMSmix_out <- x
+
+  if (!is(confintMSmix_out, "ciMSmix")) {
+    stop("The function requires an object of S3 class 'ciMSmix' as its first argument.\n")
   }
-  invisible(list(ci_theta = ci_theta, ci_weights = (if (n_clust >
-                                                        1) ci_weights else NULL)))
+
+  cat(paste0("Asymptotic ", 100*confintMSmix_out$conf_level, "%CIs for the precisions:\n"))
+  cat("\n")
+  print(round(confintMSmix_out$ci_theta,3))
+  cat("\n")
+
+  if(!is.null(confintMSmix_out$ci_weights)){
+  cat("\n")
+  cat(paste0("Asymptotic ", 100*confintMSmix_out$conf_level, "%CIs for the mixture weights:\n"))
+  cat("\n")
+  print(round(confintMSmix_out$ci_weights,3))
+  cat("\n")}
+  invisible(x)
 
 }
 
+# rearrange_output_mix ----
+#' Arrange the output of MLE of mixtures of Mallows models with Spearman distance via EM algorithms
+#'
+#' Arrange the output of the object of class \code{"emMSmix"} according to a given relabelling of the mixture component labels.
+#'
+#' @param output An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.
+#' @param ord Integer vector of length \code{n_clust} with the desired relabelling of the mixture component labels.
+#'
+#' @export rearrange_output_mix
+#' @export
+#'
 
+
+rearrange_output_mix <- function(output, ord){
+
+
+  if (!is(output, "emMSmix")) {
+    stop("The function requires an object of S3 class 'emMSmix' as its first argument.\n")
+  }
+
+  output_switched <- output
+  output_switched$mod$rho <- output$mod$rho[ord,]
+  output_switched$mod$theta <- output$mod$theta[ord]
+  output_switched$mod$weights <- output$mod$weights[ord]
+  output_switched$mod$z_hat <- output$mod$z_hat[,ord]
+
+  class<-output$mod$map_classification
+  n_clust <- output$em_settings$n_clust
+  for(k in 1:n_clust) class[which(output$mod$map_classification==ord[k])] <- k
+
+  output_switched$mod$map_classification <- class
+
+  invisible(output_switched)
+}

@@ -51,13 +51,13 @@ fitMSmix(
 
 \item{theta_max}{Positive upper bound for the precision parameters. Defaults to 3.}
 
-\item{theta_tol}{Positive convergence tolerance for the Mstep on theta. Defaults to \eqn{10^{-5}}.}
+\item{theta_tol}{Positive convergence tolerance for the M-step of the precision parameters. Defaults to \eqn{10^{-5}}.}
 
 \item{theta_tune}{Positive tuning constant affecting the precision parameters in the Monte Carlo step. Ignored when \code{rankings} does not contain any partial sequence or \code{mc_em = FALSE}. Defaults to 1.}
 
-\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}.}
+\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of the \code{rankings}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.}
 
-\item{item_names}{Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
+\item{item_names}{Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
 
 \item{x}{An object of class \code{"emMSmix"} returned by \code{\link{fitMSmix}}.}
 
@@ -73,7 +73,6 @@ An object of class \code{"emMSmix"}, namely a list with the following named comp
 \item{\code{record}}{Best log-likelihood values sequentially achieved over the \code{n_start} initializations.}
 \item{\code{em_settings}}{List of settings used to fit the model.}
 \item{\code{call}}{The matched call.}
-
 }
 
 The \code{mod} sublist contains the following named objects:
@@ -95,7 +94,7 @@ The \code{mod} sublist contains the following named objects:
 }
 \description{
 Perform the MLE of mixtures of Mallows model with Spearman distance on full and partial rankings via EM algorithms.
-Partial rankings with arbitrary missing positions are supported.
+Partial rankings with missing data in arbitrary positions are supported.
 
 \code{print} method for class \code{"emMSmix"}.
 }
@@ -108,7 +107,7 @@ rankings are augmented with all compatible full rankings. This type of data augm
 supported up to 10 missing positions in the partial rankings.
 
 When \code{mc_em = TRUE}, the - computationally more efficient - Monte Carlo EM algorithm
-introduced by Crispino et al. (2024+) is implemented. In the case of a large number
+introduced by Crispino et al. (2025+) is implemented. In the case of a large number
 of censored positions and sample sizes, the \code{mc_em = TRUE} must be preferred.
 
 Regardless of the fitting method adopted for inference on partial rankings, note that
@@ -117,21 +116,21 @@ observed-data log-likelihood values (based on partial rankings)
 can slow down the procedure in the case of a large number of censored positions and sample sizes.
 }
 \examples{
-## Example 1. Fit the 3-component mixture of Mallow models with Spearman distance
+## Example 1. Fit the 3-component mixture of Mallows models with Spearman distance
 ## to the Antifragility dataset.
 r_antifrag <- ranks_antifragility[, 1:7]
 set.seed(123)
 mms_fit <- fitMSmix(rankings = r_antifrag, n_clust = 3, n_start = 10)
 mms_fit$mod$rho; mms_fit$mod$theta; mms_fit$mod$weights
 
-## Example 2. Fit the Mallow model with Spearman distance
+## Example 2. Fit the Mallows model with Spearman distance
 ## to simulated partial rankings through data augmentation.
 rank_data <- rbind(c(NA, 4, NA, 1, NA), c(NA, NA, NA, NA, 1), c(2, NA, 1, NA, 3),
                    c(4, 2, 3, 5, 1), c(NA, 4, 1, 3, 2))
 mms_fit <- fitMSmix(rankings = rank_data, n_start = 10)
 mms_fit$mod$rho; mms_fit$mod$theta
 
-## Example 3. Fit the Mallow model with Spearman distance
+## Example 3. Fit the Mallows model with Spearman distance
 ## to the Reading genres dataset through Monte Carlo EM.
 top5_read <- ranks_read_genres[, 1:11]
 mms_fit <- fitMSmix(rankings = top5_read, n_start = 10, mc_em = TRUE)
@@ -139,7 +138,7 @@ mms_fit$mod$rho; mms_fit$mod$theta
 
 }
 \references{
-Crispino M, Mollica C and Modugno L (2024+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
+Crispino M, Mollica C and Modugno L (2025+). MSmix: An R Package for clustering partial rankings via mixtures of Mallows Models with Spearman distance. \emph{(submitted)}
 
 Crispino M, Mollica C, Astuti V and Tardella L (2023). Efficient and accurate inference for mixtures of Mallows models with Spearman distance. \emph{Statistics and Computing}, \bold{33}(98), DOI: 10.1007/s11222-023-10266-8.
 

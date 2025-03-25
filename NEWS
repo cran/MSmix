@@ -1,10 +1,41 @@
 NEWS/ChangeLog for MSmix
 --------------------------
+2.0.0   2025-03-25
+
+MAJOR CHANGES
+    o   confintMSmix(...):
+        [::] modified implementation of the Hessian matrix to jointly compute the asymptotic CIs for precisions and weights.
+    o   data_censoring(...):
+        [::] replaced former character argument `type` with the logical `topk`.
+
+MINOR CHANGES
+    o   MSmix-package.Rd and DESCRIPTION files:
+        [::] replaced "hessian-based" with "asymptotic" to refer to the confidence intervals computed with confintMSmix(...).
+    o   bootstrapMSmix(...):
+        [::] removed rounding of the CI limits returned for the continuous parameters.
+    o   print.bootMSmix(...):
+        [::] rounding applied to the CI limits displyed for the continuous parameters.
+
+NEW FUNCTIONS
+    o   `print.bootMSmix(...)` for printing the bootstrapped CIs.
+    o   `print.ciMSmix(...)` for printing the asymptotic CIs.
+    o   `rearrange_output_mix(...)` for relabelling the mixture components in the MLEs of the MMS mixture parameters.
+
+NEW FEATURES
+    o   plot.bootMSmix(...), plot.data_descr(...) and plot.emMSmix(...):
+        [::] plots are returned as elements of the output list instead of being directly displayed in the graphical window.
+
+DOCUMENTATION
+    o   The manual has been globally reviewed and updated with the new implementation details.
+    o   Documentation added for all the internal (non-exported) functions.
+
+###################################################################################################################
+
 
 1.0.2   2024-06-15
 
 BUG FIXES
-    o   subsetting implementation with `subset` argument in the case of numerical row indeces.
+    o   subsetting implementation with `subset` argument in the case of numerical row indices.
     o   bootstrapMSmix(...):
         [::] computation of the itemwise CIs for the components of the estimated consensus rankings in the case of tied relative frequencies.
 
@@ -40,7 +71,7 @@ MINOR CHANGES
     o   character variables converted into factors in the `ranks_sports` dataset.
 
 NEW FUNCTIONS
-    o   added the print method print.bootMSmix(...)  for the S3 class `bootMSmix`.
+    o   added the print method print.bootMSmix(...) for the S3 class `bootMSmix`.
 
 NEW FEATURES
     o   added new argument `subset` in bootstrapMSmix(...) and data_conversion(...).

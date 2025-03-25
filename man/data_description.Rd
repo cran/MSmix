@@ -25,9 +25,9 @@ data_description(
 
 \item{paired_comp}{Logical: whether the pairwise comparison matrix has to be computed. Defaults to \code{TRUE}.}
 
-\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be considered. Missing values are taken as \code{FALSE}.}
+\item{subset}{Optional logical or integer vector specifying the subset of observations, i.e. rows of \code{rankings}, to be kept. Missing values are taken as \code{FALSE}. Defaults to \code{NULL} meaning that all the rows are considered.}
 
-\item{item_names}{Character vector for the names of the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
+\item{item_names}{Character vector with the names to be used for the items. Defaults to \code{NULL}, meaning that \code{colnames(rankings)} is used and, if not available, \code{item_names} is set equal to \code{"Item1","Item2",...}.}
 
 \item{x}{An object of class \code{"data_descr"} returned by \code{\link{data_description}}.}
 
@@ -53,7 +53,7 @@ Compute various data summaries for a partial ranking dataset. Differently from e
 \details{
 The implementation of \code{data_description} is similar to that of \code{rank_summaries} from the \code{PLMIX} package. Differently from the latter, \code{data_description} works with any kind of partial rankings (not only top rankings) and allows to summarize subsamples thanks to the additional \code{subset} argument.
 
-The Borda ranking, obtained from the ordering of the mean rank vector, corresponds to the MLE of the consensus ranking of the Mallow model with Spearman distance. If \code{mean_rank} contains some \code{NA}s, the corresponding items occupy the bottom positions in the \code{borda_ordering} according to the order they appear in \code{item_names}.
+The Borda ranking, obtained from the ordering of the mean rank vector, corresponds to the MLE of the consensus ranking of the Mallows model with Spearman distance. If \code{mean_rank} contains some \code{NA}s, the corresponding items occupy the bottom positions in the \code{borda_ordering} according to the order they appear in \code{item_names}.
 }
 \examples{
 
@@ -81,5 +81,5 @@ Mollica C and Tardella L (2020). PLMIX: An R package for modelling and clusterin
 Marden JI (1995). Analyzing and modeling rank data. \emph{Monographs on Statistics and Applied Probability} (64). Chapman & Hall, ISSN: 0-412-99521-2. London.
 }
 \seealso{
-\code{\link{plot.data_descr}}
+\code{\link{plot.data_descr}}, \code{\link{print.data_descr}}
 }
